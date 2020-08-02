@@ -1,0 +1,9 @@
+#! /bin/sh
+
+if [[ -z "$k8server" && -z "$k8token" ]]
+then
+      echo 'The $k8server and $k8token must be defined';
+else
+      echo The url is "${k8server}""$*"
+      curl -ki -H "Authorization: Bearer $k8token" "${k8server}""$*"
+fi

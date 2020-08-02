@@ -1,0 +1,16 @@
+#!/bin/bash
+
+out=$(goexec "utils" "$@")
+if [[ $out == ERR* ]]; then
+  echo "$out"
+elif [[ $out == INFO* ]]; then
+  echo "$out"
+else
+  if [ "$1" == "get" ]; then
+    echo $out
+  elif [ "$1" == "pbc" ]; then
+    echo $out | tr -d '\n'  | pbcopy
+  else
+    command $out
+  fi
+fi

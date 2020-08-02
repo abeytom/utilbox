@@ -1,0 +1,10 @@
+#!/bin/bash
+
+basedir=$(dirname "$0")
+if [ -z "$uenv" ]; then
+  go_cmd="$basedir/go/bin/utils"
+else
+  go_cmd="go run $basedir/go/main.go"
+fi
+
+$go_cmd "$@"

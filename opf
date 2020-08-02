@@ -1,0 +1,8 @@
+#!/bin/bash
+
+out=$(goexec "utils" get path "$@")
+if [[ $out == ERR* ]]; then
+  echo "$out"
+else
+  command open $out
+fi

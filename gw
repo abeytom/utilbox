@@ -1,0 +1,15 @@
+#! /bin/bash
+
+CWD=$PWD
+until [ $CWD == / ]; do
+    GRADLEW=$CWD/gradlew
+    if [ -e $GRADLEW ]; then
+        exec $GRADLEW $@
+    fi
+    CWD=$(dirname $CWD)
+done
+
+if [ -f $DEFAULT_GRADLE ]; then
+  echo No Gradle wrapper found, using `which gradle`
+  exec gradle $@
+fi
