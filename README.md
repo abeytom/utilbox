@@ -4,10 +4,10 @@ May be not the best approach out there, but this has grown on me over the years.
 to use in my Windows XP with batch (and java).
 
 # Setup
-- Clone this repo to say `~/github.abeytom/cmdline-utils`
-- Add `~/github.abeytom/cmdline-utils` to the $PATH
+- Clone this repo to say `~/github/abeytom/cmdline-utils`
+- Add `~/github/abeytom/cmdline-utils` to the $PATH
 - Build `cd go && make`
-- Give exec permissions cmd alias files `chmod +x bk csv ft goexec gw kc kcurl op opf`
+- Give exec permissions cmd alias files `chmod +x bk csv ft goexec gw kc kcurl op opf gcart`
 
 # Core Utils `bk` bookmark
 This is used to bookmark various FileSystem Paths and Command Aliases
@@ -65,19 +65,15 @@ kc ssh pod-name*  [bash | sh]       # ssh to the pod
 kc logs `kc pod pod-name* 0`        # get logs from the first matched pod-name* 
 ``` 
 
+# Gcloud Utils [WIP]
 
+## 1. List Latest versions of all artifacts [gcArt]
+##### Prerequisite: Run this to make sure that the gcloud is setup
+```
+gcloud beta artifacts packages list --repository=maven-repo --location=us-west1 --format=json
+```
 
+#### Run the command
+`gcart`
 
-
-
-
-
-
-
-
-
-
- 
-
-
-
+TODO: customize with other args

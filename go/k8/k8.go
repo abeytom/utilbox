@@ -102,7 +102,7 @@ func Execute(allArgs []string) {
 
 func getSecretStr(name string, namespace string) (string, error) {
 	args := []string{"-n", namespace, "describe", "secret", name}
-	secretStr, errOut, err := executeCommand("kubectl", args...)
+	secretStr, errOut, err := ExecuteCommand("kubectl", args...)
 	if err != nil || secretStr == "" {
 		fmt.Printf("[error] The get pods returned error. %s", errOut)
 		return "", nil
@@ -122,7 +122,7 @@ func getSecretStr(name string, namespace string) (string, error) {
 
 func getSecretByName(namespace string, nameMatch string, matchIndex int) (string, error) {
 	args := []string{"-n", namespace, "get", "secrets"}
-	secretStr, errOut, err := executeCommand("kubectl", args...)
+	secretStr, errOut, err := ExecuteCommand("kubectl", args...)
 	if err != nil || secretStr == "" {
 		fmt.Printf("[error] The get pods returned error. %s", errOut)
 		return "", nil
@@ -164,7 +164,7 @@ func getSecretByName(namespace string, nameMatch string, matchIndex int) (string
 
 func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly bool) (string, error) {
 	args := []string{"-n", namespace, "get", "pods"}
-	podsStr, errOut, err := executeCommand("kubectl", args...)
+	podsStr, errOut, err := ExecuteCommand("kubectl", args...)
 	if err != nil || podsStr == "" {
 		fmt.Printf("[error] The get pods returned error. %s", errOut)
 		return "", nil
@@ -216,7 +216,7 @@ func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly
 	return "", nil
 }
 
-func executeCommand(cmdName string, args ...string) (string, string, error) {
+func ExecuteCommand(cmdName string, args ...string) (string, string, error) {
 	//fmt.Printf("[info] Running the command [%s %s]\n", cmdName, args)
 	cmd := exec.Command(cmdName, args...)
 	var out bytes.Buffer

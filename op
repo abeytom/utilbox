@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 out=$(goexec "utils" get path "$@")
 if [[ $out == ERR* ]]; then
   echo "$out"
 else
-  command cd $out
+  cd $out || exit
 fi
