@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/abeytom/cmdline-utils/k8"
 	"math"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -28,6 +29,9 @@ func Execute(args []string) {
 			return
 		}
 		for _, pkg := range packages {
+			if len(args) > 0 && !filterMatches(pkg, args[1]) {
+				continue
+			}
 			args := []string{"beta", "artifacts", "versions", "list",
 				"--repository=maven-repo",
 				"--location=us-west1",
@@ -48,8 +52,13 @@ func Execute(args []string) {
 	}
 }
 
+func filterMatches(pkg *GcloudItem, filter string) bool {
+	match, err := filepath.Match(filter, strings.Split(pkg.Name, ":")[1])
+	return err == nil && match
+}
+
 func shortDur(d time.Duration) string {
-	if d.Hours() > 0 {
+	if d.Hours() >= 1 {
 		hours := d.Hours()
 		if hours < 24 {
 			return fmt.Sprintf("(%v hours ago)", int(math.Round(hours)))
