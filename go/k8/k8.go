@@ -8,10 +8,21 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
+
+type Pod struct {
+	Name     string
+	AgeStr   string
+	Age      *time.Duration
+	Status   string
+	Restarts string
+	Ready    string
+}
 
 /**
 export k8ns=namespace
@@ -36,9 +47,15 @@ func Execute(allArgs []string) {
 	os.Setenv("k8exec", "")
 
 	if args[1] == "log" || args[1] == "logs" {
-		name, err := getPodByName(ns, args[2], -1, true)
-		if err != nil || name == "" {
-			return
+		var name string
+		if args[2] == "-1" {
+			name = getLatestPod(ns).Name
+		} else {
+			out, err := getPodByName(ns, args[2], -1, true)
+			if err != nil || out == "" {
+				return
+			}
+			name = out
 		}
 		restArgs := args[3:]
 		args := append([]string{"kubectl", "-n", ns, "logs", name}, restArgs...)
@@ -90,7 +107,7 @@ func Execute(allArgs []string) {
 			ioutil.WriteFile(cmdFile, []byte(strings.Join(args2, " ")), 0644)
 		}
 	} else if args[1] == "events" || args[1] == "event" {
-		args := append([]string{"kubectl", "-n", ns, "get", "events", "--sort-by='{.lastTimestamp}'"})
+		args := append([]string{"kubectl", "-n", ns, "get", "events", "--sort-by={.lastTimestamp}"})
 		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
 	} else {
 		restArgs := args[1:]
@@ -162,17 +179,35 @@ func getSecretByName(namespace string, nameMatch string, matchIndex int) (string
 	return "", nil
 }
 
-func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly bool) (string, error) {
+func getLatestPod(namespace string) *Pod {
+	pods := *sortPods(getPods(namespace))
+	return &pods[len(pods)-1]
+}
+
+func sortPods(podsP *[]Pod) *[]Pod {
+	pods := *podsP
+	sort.Slice(pods, func(i, j int) bool {
+		if pods[i].Age.Hours() == pods[j].Age.Hours() {
+			return strings.Compare(pods[i].Name, pods[j].Name) < 0
+		} else {
+			return pods[i].Age.Hours() > pods[j].Age.Hours()
+		}
+	})
+	return &pods
+}
+
+func getPods(namespace string) *[]Pod {
 	args := []string{"-n", namespace, "get", "pods"}
 	podsStr, errOut, err := ExecuteCommand("kubectl", args...)
+	pods := []Pod{}
 	if err != nil || podsStr == "" {
 		fmt.Printf("[error] The get pods returned error. %s", errOut)
-		return "", nil
+		return &pods
 	}
 
-	podListStr := string(podsStr[:])
+	podListStr := podsStr[:]
 	scanner := bufio.NewScanner(strings.NewReader(podListStr))
-	matchedPods := []string{}
+
 	header := true
 	for scanner.Scan() {
 		if header {
@@ -181,20 +216,36 @@ func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly
 		}
 		text := scanner.Text()
 		vals := strings.Fields(text)
-		podName := vals[0]
+		pods = append(pods, Pod{
+			Name:     vals[0],
+			Ready:    vals[1],
+			Status:   vals[2],
+			Restarts: vals[3],
+			Age:      ParseDuration(vals[4]),
+			AgeStr:   vals[4],
+		})
+	}
+	return &pods
+}
+
+func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly bool) (string, error) {
+	var matchedPods []Pod
+	pods := *getPods(namespace)
+	for _, pod := range pods {
 		if runningOnly {
-			if vals[2] != "Running" {
+			if pod.Status != "Running" {
 				continue
 			}
 		}
-		match, err := filepath.Match(podMatch, podName)
+		match, err := filepath.Match(podMatch, pod.Name)
 		if err != nil {
 			fmt.Println(err)
 		}
 		if match {
-			matchedPods = append(matchedPods, podName)
+			matchedPods = append(matchedPods, pod)
 		}
 	}
+
 	if matchIndex >= len(matchedPods) {
 		fmt.Printf("[error] Invalid Match Index\n")
 		return "", nil
@@ -203,17 +254,38 @@ func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly
 		fmt.Printf("[error] Cannot find a pod in this namespace %s with name prefix %s\n", namespace, podMatch)
 	} else if len(matchedPods) > 1 {
 		if matchIndex >= 0 {
-			return matchedPods[matchIndex], nil
+			return matchedPods[matchIndex].Name, nil
 		}
 		fmt.Printf("[error] Multiple Matches found for namespace %s with name prefix %s\n", namespace, podMatch)
-		sort.Strings(matchedPods)
-		for i, name := range matchedPods {
-			fmt.Printf("%d. %s\n", i, name)
+		matchedPods = *sortPods(&matchedPods)
+		for i, mp := range matchedPods {
+			fmt.Printf("%d. %s %s\n", i, mp.Name)
 		}
 	} else {
-		return matchedPods[0], nil
+		return matchedPods[0].Name, nil
 	}
 	return "", nil
+}
+
+func ParseDuration(durStr string) *time.Duration {
+	re := regexp.MustCompile(`(\d+\w)+?`)
+	strs := re.FindAllString(durStr, -1)
+	tot := time.Duration(0)
+	for _, str := range strs {
+		val, _ := strconv.Atoi(str[:len(str)-1])
+		suffix := str[len(str)-1:]
+		switch suffix {
+		case "s":
+			tot += time.Second * time.Duration(val)
+		case "m":
+			tot += time.Minute * time.Duration(val)
+		case "h":
+			tot += time.Hour * time.Duration(val)
+		case "d":
+			tot += time.Hour * 24 * time.Duration(val)
+		}
+	}
+	return &tot
 }
 
 func ExecuteCommand(cmdName string, args ...string) (string, string, error) {
