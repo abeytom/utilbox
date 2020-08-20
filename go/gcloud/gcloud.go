@@ -21,8 +21,6 @@ type GcloudItem struct {
 const DateFormat = "2006-01-02T15:04:05.999999Z"
 
 func Execute(args []string) {
-	//gcloud beta artifacts versions list --repository=maven-repo --location=us-west1 --package=com.inception.agent:agent-assembly -o json
-	//gcloud beta artifacts packages list --repository=maven-repo --location=us-west1
 	if len(args) == 0 || args[0] == "list" {
 		packages := getSortedPackages()
 		if packages == nil {
@@ -49,7 +47,15 @@ func Execute(args []string) {
 			diff := time.Now().Sub(*latest.UpdateTime2)
 			fmt.Printf("%s%s\n", item, shortDur(diff))
 		}
+	} else {
+		fmt.Printf("Command not found %s\n", args[1])
+		help()
 	}
+}
+
+func help() {
+	fmt.Printf("The available commands are \n")
+	fmt.Printf("list [wildcard-filter]")
 }
 
 func filterMatches(pkg *GcloudItem, filter string) bool {
