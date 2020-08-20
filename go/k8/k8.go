@@ -61,9 +61,15 @@ func Execute(allArgs []string) {
 		args := append([]string{"kubectl", "-n", ns, "logs", name}, restArgs...)
 		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
 	} else if args[1] == "ssh" {
-		name, err := getPodByName(ns, args[2], -1, true)
-		if err != nil || name == "" {
-			return
+		var name string
+		if args[2] == "-1" {
+			name = getLatestPod(ns).Name
+		} else {
+			out, err := getPodByName(ns, args[2], -1, true)
+			if err != nil || out == "" {
+				return
+			}
+			name = out
 		}
 		restArgs := args[3:]
 		if len(restArgs) == 0 {
