@@ -27,7 +27,7 @@ func Execute(args []string) {
 			return
 		}
 		for _, pkg := range packages {
-			if len(args) > 0 && !filterMatches(pkg, args[1]) {
+			if len(args) > 1 && !filterMatches(pkg, args[1]) {
 				continue
 			}
 			args := []string{"beta", "artifacts", "versions", "list",
