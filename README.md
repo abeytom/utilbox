@@ -3,6 +3,8 @@ Some generic utils that I use on my mac to make my life easier.
 May be not the best approach out there, but this has grown on me over the years. I initially created this back in the days
 to use in my Windows XP with batch (and java).
 
+Note: The wildcard(*) expressions might need to enclosed in single quotes to avoid expansion by shell or use `noglob` to avoid expansion 
+
 # Setup
 - Clone this repo to say `~/github/abeytom/cmdline-utils`
 - Add `~/github/abeytom/cmdline-utils` to the $PATH
@@ -74,6 +76,7 @@ gcloud beta artifacts packages list --repository=maven-repo --location=us-west1 
 ```
 
 #### Run the command
-`gcart`
-
-TODO: customize with other args
+```
+gcart                              # lists all latest packages
+gcart list 'artifact*'             # list a specific version
+```
