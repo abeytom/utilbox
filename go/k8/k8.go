@@ -46,48 +46,61 @@ func Execute(allArgs []string) {
 
 	os.Setenv("k8exec", "")
 
-	if args[1] == "log" || args[1] == "logs" {
+	//kc log podname*
+	//kc log -1
+	//kc logt podname* :0
+	if args[1] == "log" || args[1] == "logs" || args[1] == "logt" {
+		indexParam := getIndexParam(args)
 		var name string
 		if args[2] == "-1" {
 			name = getLatestPod(ns).Name
 		} else {
-			out, err := getPodByName(ns, args[2], -1, true)
+			out, err := getPodByName(ns, args[2], indexParam, true)
 			if err != nil || out == "" {
 				return
 			}
 			name = out
 		}
-		restArgs := args[3:]
+		var restIndex int
+		if indexParam >= 0 {
+			restIndex = 4
+		} else {
+			restIndex = 3
+		}
+		restArgs := args[restIndex:]
+		if args[1] == "logt" {
+			restArgs = append(restArgs, "--tail=100", "-f")
+		}
 		args := append([]string{"kubectl", "-n", ns, "logs", name}, restArgs...)
 		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
 	} else if args[1] == "ssh" {
+		//kc ssh podname* [:index] [-- sh]
+		indexParam := getIndexParam(args)
 		var name string
 		if args[2] == "-1" {
 			name = getLatestPod(ns).Name
 		} else {
-			out, err := getPodByName(ns, args[2], -1, true)
+			out, err := getPodByName(ns, args[2], indexParam, true)
 			if err != nil || out == "" {
 				return
 			}
 			name = out
 		}
-		restArgs := args[3:]
+		var restIndex int
+		if indexParam >= 0 {
+			restIndex = 4
+		} else {
+			restIndex = 3
+		}
+		restArgs := args[restIndex:]
 		if len(restArgs) == 0 {
-			restArgs = []string{"bash"}
+			restArgs = []string{"--", "bash"}
 		}
 		args := append([]string{"kubectl", "-n", ns, "exec", "-it", name}, restArgs...)
 		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
 	} else if args[1] == "pod" {
-		var matchIndex = -1
-		if len(args) > 3 {
-			index, err := strconv.Atoi(args[3])
-			if err != nil {
-				matchIndex = -1
-			} else {
-				matchIndex = index
-			}
-		}
-		name, err := getPodByName(ns, args[2], matchIndex, false)
+		indexParam := getIndexParam(args)
+		name, err := getPodByName(ns, args[2], indexParam, false)
 		if err != nil || name == "" {
 			return
 		}
@@ -121,6 +134,19 @@ func Execute(allArgs []string) {
 		//fmt.Printf("Running the command %s\n", args)
 		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
 	}
+}
+
+func getIndexParam(args []string) int {
+	for _, arg := range args {
+		if strings.Index(arg, ":") == 0 {
+			r := []rune(arg)
+			index, err := strconv.Atoi(string(r[1:]))
+			if err == nil {
+				return index
+			}
+		}
+	}
+	return -1
 }
 
 func getSecretStr(name string, namespace string) (string, error) {
@@ -262,10 +288,10 @@ func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly
 		if matchIndex >= 0 {
 			return matchedPods[matchIndex].Name, nil
 		}
-		fmt.Printf("[error] Multiple Matches found for namespace %s with name prefix %s\n", namespace, podMatch)
+		fmt.Printf("[error] Multiple Matches found for namespace %s with name prefix %s\n\n", namespace, podMatch)
 		matchedPods = *sortPods(&matchedPods)
 		for i, mp := range matchedPods {
-			fmt.Printf("%d. %s %s\n", i, mp.Name)
+			fmt.Printf("%d. %s\t%s\t%s\t%s\t%s\n", i, mp.Name, mp.Ready, mp.Status, mp.Restarts, mp.AgeStr)
 		}
 	} else {
 		return matchedPods[0].Name, nil

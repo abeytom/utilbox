@@ -62,9 +62,13 @@ kc get pods                         # wrapper for kubectl -n my-namespace get po
 kc get svc
 
 # shortcut commands 
-kc logs pod-name* [args]            # use wildcards in name
-kc ssh pod-name*  [bash | sh]       # ssh to the pod
-kc logs `kc pod pod-name* 0`        # get logs from the first matched pod-name* 
+
+kc logs pod-name* [:index]                  # use wildcards in name (:index -> :0, :2 if there are multiple matches)
+kc logt pod-name* [:index]                  # start a tail and follow with last 100 lines
+kc logs[logt] -1                                # -1 will match the latest pod
+
+kc ssh pod-name* [:index] [-- bash|sh]      # use wildcards in name (:index -> :0, :2 if there are multiple matches
+ 
 ``` 
 
 # Gcloud Utils [WIP]

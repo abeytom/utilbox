@@ -51,7 +51,7 @@ func HandleCsv(args []string) {
 			delim = strings.Replace(arg, "delim:", "", 1)
 		}
 	}
-	//fmt.Printf("delim %s, byLine %s, filePath=[%s], row %s, col %s \n",
+	//fmt.Printf("delim %s, byLine %t, filePath=[%s], row %+v, col %+v \n",
 	//	delim, merge, filePath, rowExt, colExt)
 
 	file, err := os.Open(filePath)
