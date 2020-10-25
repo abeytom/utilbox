@@ -18,8 +18,9 @@ func main() {
 		utils.Format(args[1:])
 	} else if args[1] == "gcloud_art" {
 		gcloud.Execute(args[2:])
+	} else if args[1] == "jsonLog2Txt" {
+		utils.JsonLog2Txt()
 	} else {
 		fmt.Printf("Unknown command %s\n", args)
 	}
 }
-
