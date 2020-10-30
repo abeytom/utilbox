@@ -1,9 +1,14 @@
 #!/usr/bin/env zsh
 
+if [ -z "$PROMPTX" ]
+  then
+    PROMPTX=" $ "
+fi
+
 if [ -z "$1" ]
   then
     echo "Usage . k8ns <ns> i.e (dot) k8ns <ns>"
 else
   export k8ns=$1
-  PS1='%F{magenta}${LAST2PATHS}%F %F{green}(k8ns:${k8ns})%F $ '
+  PS1="%F{green}(k8ns:${k8ns})%F $PROMPTX"
 fi
