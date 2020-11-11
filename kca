@@ -1,0 +1,17 @@
+#!/bin/bash
+
+basedir=$(dirname "$0")
+cmdfile="$basedir/.tmp/tmp_cmd"
+mkdir -p "$basedir/.tmp"
+: >"$cmdfile"
+
+goexec "k8" "$cmdfile" "$@" "--all-namespaces"
+
+cmd=$(cat "$cmdfile")
+
+if [[ ! -z "$cmd" ]]; then
+  #  echo "[info] running the commnd $cmd"
+  command $cmd
+fi
+
+#perl -lne '/EXEC{(.*?)}/ && print $1'

@@ -55,7 +55,7 @@ func Execute(allArgs []string) {
 		if args[2] == "-1" {
 			name = getLatestPod(ns).Name
 		} else {
-			out, err := getPodByName(ns, args[2], indexParam, true)
+			out, err := getPodByName(ns, args[2], indexParam, false)
 			if err != nil || out == "" {
 				return
 			}
@@ -130,10 +130,18 @@ func Execute(allArgs []string) {
 		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
 	} else {
 		restArgs := args[1:]
-		args := append([]string{"kubectl", "-n", ns}, restArgs...)
+		//args := append([]string{"kubectl", "-n", ns}, restArgs...)
+		args := append(append(getKubeArgs(ns,restArgs)), restArgs...)
 		//fmt.Printf("Running the command %s\n", args)
 		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
 	}
+}
+
+func getKubeArgs(ns string, args []string) []string {
+	if contains(args, "--all-namespaces") {
+		return []string{"kubectl"}
+	}
+	return []string{"kubectl", "-n", ns}
 }
 
 func getIndexParam(args []string) int {
@@ -333,4 +341,13 @@ func ExecuteCommand(cmdName string, args ...string) (string, string, error) {
 		return "", stderr.String(), err
 	}
 	return out.String(), "", nil
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

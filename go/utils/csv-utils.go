@@ -27,9 +27,11 @@ func HandleCsv(args []string) {
 	//fmt.Printf("The args are %s\n", args)
 	delim := " "
 	merge := false
+	mergeDelim := ", "
 	filePath := args[0]
 	rowExt := CsvExtract{0, -1}
 	colExt := CsvExtract{0, -1}
+
 	for _, arg := range args[1:] {
 		if arg == "space" {
 			delim = " "
@@ -37,8 +39,11 @@ func HandleCsv(args []string) {
 			delim = "\t"
 		} else if arg == "comma" {
 			delim = ","
-		} else if arg == "merge" {
+		} else if strings.HasPrefix(arg, "merge") {
 			merge = true
+			if arg != "merge" {
+				mergeDelim = extractMergeDelim(arg)
+			}
 		} else if strings.Index(arg, "row") == 0 {
 			if arg != "row" {
 				rowExt = extractCsvIndexArg(arg)
@@ -73,12 +78,26 @@ func HandleCsv(args []string) {
 		idx = idx + 1
 	}
 	if merge {
-		fmt.Printf("%s\n", strings.Join(lines, ", "))
+		fmt.Printf("%s\n", strings.Join(lines, mergeDelim))
 	} else {
 		for _, line := range lines {
 			fmt.Printf("%s\n", line)
 		}
 	}
+}
+
+func extractMergeDelim(arg string) string {
+	delim := strings.Replace(arg, "merge:", "", 1)
+	if delim == "comma" {
+		return ", "
+	}
+	if delim == "space" {
+		return " "
+	}
+	if delim == "tab" {
+		return "\t"
+	}
+	return delim
 }
 
 func extractCsv(words []string, ext CsvExtract) []string {
