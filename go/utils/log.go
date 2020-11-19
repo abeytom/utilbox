@@ -21,7 +21,7 @@ func JsonLog2Txt() {
 		line := scanner.Bytes()
 		var logLine LogLine
 		if err := json.Unmarshal(line, &logLine); err != nil {
-			fmt.Print(err)
+			fmt.Println(string(line))
 			continue
 		}
 		fmt.Printf("%s %s [%s] %s %s\n", logLine.Timestamp, logLine.Level, logLine.Thread, logLine.Logger, logLine.Message)
