@@ -3,7 +3,9 @@ package k8
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -131,7 +133,7 @@ func Execute(allArgs []string) {
 	} else {
 		restArgs := args[1:]
 		//args := append([]string{"kubectl", "-n", ns}, restArgs...)
-		args := append(append(getKubeArgs(ns,restArgs)), restArgs...)
+		args := append(append(getKubeArgs(ns, restArgs)), restArgs...)
 		//fmt.Printf("Running the command %s\n", args)
 		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
 	}
@@ -178,43 +180,22 @@ func getSecretStr(name string, namespace string) (string, error) {
 }
 
 func getSecretByName(namespace string, nameMatch string, matchIndex int) (string, error) {
-	args := []string{"-n", namespace, "get", "secrets"}
+	args := []string{"-n", namespace, "get", "secret", nameMatch, "-o", "yaml"}
 	secretStr, errOut, err := ExecuteCommand("kubectl", args...)
 	if err != nil || secretStr == "" {
-		fmt.Printf("[error] The get pods returned error. %s", errOut)
+		fmt.Printf("[error] The get secrets returned error. %s", errOut)
 		return "", nil
 	}
-	secretListStr := string(secretStr[:])
-	scanner := bufio.NewScanner(strings.NewReader(secretListStr))
-	matchedSecrets := []string{}
-	for scanner.Scan() {
-		text := scanner.Text()
-		podName := strings.Split(text, " ")[0]
-		match, err := filepath.Match(nameMatch, podName)
+	yamlMap := make(map[interface{}]interface{})
+	yaml.Unmarshal([]byte(secretStr), &yamlMap)
+	dataMap := yamlMap["data"].(map[interface{}]interface{})
+	for key, value := range dataMap {
+		dec, err := base64.StdEncoding.DecodeString(value.(string))
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[error] Error while decoding the secret. %v", err)
+			continue
 		}
-		if match {
-			matchedSecrets = append(matchedSecrets, podName)
-		}
-	}
-	if matchIndex >= len(matchedSecrets) {
-		fmt.Printf("[error] Invalid IEFilter Index")
-		return "", nil
-	}
-	if len(matchedSecrets) == 0 {
-		fmt.Printf("[error] Cannot find a secret in this namespace %s with name prefix %s\n", namespace, nameMatch)
-	} else if len(matchedSecrets) > 1 {
-		if matchIndex >= 0 {
-			return matchedSecrets[matchIndex], nil
-		}
-		fmt.Printf("[error] Multiple Matches found for namespace %s with name prefix %s\n", namespace, nameMatch)
-		sort.Strings(matchedSecrets)
-		for i, name := range matchedSecrets {
-			fmt.Printf("%d. %s\n", i+1, name)
-		}
-	} else {
-		return matchedSecrets[0], nil
+		fmt.Printf("%s =>\n%s\n\n\n", key, string(dec))
 	}
 	return "", nil
 }
