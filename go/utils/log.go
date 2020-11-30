@@ -8,11 +8,12 @@ import (
 )
 
 type LogLine struct {
-	Timestamp string `json:"@timestamp"`
-	Thread    string `json:"thread_name"`
-	Message   string `json:"message"`
-	Level     string `json:"level"`
-	Logger    string `json:"logger_name"`
+	Timestamp  string `json:"@timestamp"`
+	Thread     string `json:"thread_name"`
+	Message    string `json:"message"`
+	Level      string `json:"level"`
+	Logger     string `json:"logger_name"`
+	StackTrace string `json:"stack_trace"`
 }
 
 func JsonLog2Txt() {
@@ -25,5 +26,8 @@ func JsonLog2Txt() {
 			continue
 		}
 		fmt.Printf("%s %s [%s] %s %s\n", logLine.Timestamp, logLine.Level, logLine.Thread, logLine.Logger, logLine.Message)
+		if logLine.StackTrace != "" {
+			fmt.Println(logLine.StackTrace)
+		}
 	}
 }
