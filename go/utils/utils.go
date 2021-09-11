@@ -2,12 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"github.com/abeytom/cmdline-utils/common"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 )
 import "encoding/json"
@@ -15,6 +15,7 @@ import "encoding/json"
 type Conf struct {
 	Paths   map[string]string `json:"paths"`
 	Aliases map[string]string `json:"aliases"`
+	Tokens map[string]string `json:"tokens"`
 }
 
 /**
@@ -147,7 +148,7 @@ func Execute(args []string) {
 }
 
 func lookupValueByKeyIndex(indexStr string, kvMap map[string]string, typeStr string) (string, string) {
-	cmdIndex := strToInt(indexStr, -1)
+	cmdIndex := common.StrToInt(indexStr, -1)
 	if cmdIndex >= 0 {
 		keys := *getSortedMapKeys(&kvMap)
 		if len(keys) > cmdIndex {
@@ -168,15 +169,6 @@ func getSortedMapKeys(mp *map[string]string) *[]string {
 	}
 	sort.Strings(keys)
 	return &keys
-}
-
-func strToInt(str string, def int) int {
-	parsed, err := strconv.Atoi(str)
-	if err != nil {
-		return def
-	} else {
-		return parsed
-	}
 }
 
 func getSubPaths(base string, paths []string) string {

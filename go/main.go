@@ -20,6 +20,8 @@ func main() {
 		gcloud.Execute(args[2:])
 	} else if args[1] == "jsonLog2Txt" {
 		utils.JsonLog2Txt()
+	} else if args[1] == "tok" {
+		utils.BearerToken(args[1:])
 	} else {
 		fmt.Printf("Unknown command %s\n", args)
 	}
