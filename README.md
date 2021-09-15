@@ -6,6 +6,29 @@ to use in my Windows XP with batch (and java).
 Note: The wildcard(*) expressions might need to enclosed in single quotes to avoid expansion by shell or use `noglob` to avoid expansion 
 # Install
 
+## Linux
+
+### Current Dir
+```
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-amd64.tar.gz | tar -xvz && export PATH=$PATH:$(pwd)/utilbox
+```
+### Home
+```
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-amd64.tar.gz | tar -xvz -C $HOME && export PATH=$PATH:$HOME/utilbox
+```
+
+## OSX
+
+### Current Dir
+```
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.tar.gz | tar -xvz && export PATH=$PATH:$(pwd)/utilbox
+```
+### Home
+```
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.tar.gz | tar -xvz -C $HOME && export PATH=$PATH:$HOME/utilbox
+```
+
+
 # Setup
 - Clone this repo to say `~/github/abeytom/utilbox`
 - Add `~/github/abeytom/utilbox` to the $PATH
