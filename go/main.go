@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/abeytom/cmdline-utils/gcloud"
-	"github.com/abeytom/cmdline-utils/k8"
-	"github.com/abeytom/cmdline-utils/utils"
+	"github.com/abeytom/utilbox/gcloud"
+	"github.com/abeytom/utilbox/k8"
+	"github.com/abeytom/utilbox/utils"
 	"os"
 )
 

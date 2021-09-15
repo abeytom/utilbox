@@ -1,4 +1,4 @@
-module github.com/abeytom/cmdline-utils
+module github.com/abeytom/utilbox
 
 go 1.13
 

@@ -3,7 +3,7 @@ package gcloud
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/abeytom/cmdline-utils/k8"
+	"github.com/abeytom/utilbox/k8"
 	"math"
 	"path/filepath"
 	"sort"

@@ -1,13 +1,14 @@
-# Cmdline Utils
+# Utilbox
 Some generic utils that I use on my mac to make my life easier.
 May be not the best approach out there, but this has grown on me over the years. I initially created this back in the days
 to use in my Windows XP with batch (and java).
 
 Note: The wildcard(*) expressions might need to enclosed in single quotes to avoid expansion by shell or use `noglob` to avoid expansion 
+# Install
 
 # Setup
-- Clone this repo to say `~/github/abeytom/cmdline-utils`
-- Add `~/github/abeytom/cmdline-utils` to the $PATH
+- Clone this repo to say `~/github/abeytom/utilbox`
+- Add `~/github/abeytom/utilbox` to the $PATH
 - Build `cd go && make`
 - Give exec permissions cmd alias files `chmod +x bk csv ft goexec gw kc kcurl op opf gcart`
 
@@ -18,7 +19,7 @@ This is used to bookmark various FileSystem Paths and Command Aliases
 ```
 # add a path
 bk add path <alias> /path/to file
-bk add path cu ~/github.abeytom/cmdline-utils
+bk add path cu ~/github.abeytom/utilbox
 
 # List Paths
 bk list paths

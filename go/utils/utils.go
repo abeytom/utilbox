@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"github.com/abeytom/cmdline-utils/common"
+	"github.com/abeytom/utilbox/common"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -36,17 +36,16 @@ open `bk get istore` [open in the pathAlias in finder]
 bk pbc path alias | bk pbc cmd alias | bk pbc alias
 */
 func Execute(args []string) {
-	baseDir := os.Getenv("CMDLINE_UTILS_PATH")
+	baseDir := os.Getenv("UTILBOX_PATH")
 	if baseDir == "" {
 		user, err := user.Current()
 		if err != nil {
 			panic(err)
 		}
-		baseDir = filepath.Join(user.HomeDir, ".cmdline-utils")
+		baseDir = filepath.Join(user.HomeDir, ".utilbox")
 		//fmt.Printf("ERR:ENV_VAR_NOT_SET [CMDLINE_UTILS_PATH]")
 		//os.Exit(1)
 	}
-
 	cmd := args[1]
 	if cmd == "add" {
 		subCmd := args[2]

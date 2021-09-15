@@ -8,13 +8,13 @@ import (
 )
 
 func BearerToken(args []string) {
-	baseDir := os.Getenv("CMDLINE_UTILS_PATH")
+	baseDir := os.Getenv("UTILBOX_PATH")
 	if baseDir == "" {
 		user, err := user.Current()
 		if err != nil {
 			panic(err)
 		}
-		baseDir = filepath.Join(user.HomeDir, ".cmdline-utils")
+		baseDir = filepath.Join(user.HomeDir, ".utilbox")
 	}
 	cmd := args[1]
 	conf := getConf(baseDir)
