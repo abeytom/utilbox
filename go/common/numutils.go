@@ -13,6 +13,15 @@ type IntRange struct {
 	Exclude bool
 }
 
+func (r *IntRange) IntRangeClone() *IntRange {
+	return &IntRange{
+		Start:   r.Start,
+		End:     r.End,
+		Indices: r.Indices,
+		Exclude: r.Exclude,
+	}
+}
+
 /*
 	[1]
 	[1,2]
@@ -138,4 +147,13 @@ func ResolveArrayBounds(r *IntRange, len int) []int {
 		indices = append(indices, i)
 	}
 	return indices
+}
+
+func BruteIntContains(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

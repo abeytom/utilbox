@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/abeytom/utilbox/common"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -25,21 +26,17 @@ type CsvInjectArgs struct {
 }
 
 type CsvFormat struct {
-	ColFmtMap  map[int]ColumnFormat
-	ColExt     *common.IntRange
-	RowExt     *common.IntRange
-	Delim      string
-	Merge      string
-	IsLMerge   bool
-	LMerge     string
-	Wrap       string
-	HasReducer bool
-}
-
-type LineProcessor struct {
-	csvFmt   CsvFormat
-	RowIndex int
-	Lines    []string
+	ColFmtMap    map[int]ColumnFormat
+	ColExt       *common.IntRange
+	RowExt       *common.IntRange
+	Delim        string
+	Merge        string
+	IsLMerge     bool
+	LMerge       string
+	Wrap         string
+	HasReducer   bool
+	MapRed       *MapRed
+	HasMrReducer bool
 }
 
 func HandleCsv(args []string) {
@@ -75,6 +72,14 @@ func HandleCsv(args []string) {
 	//todo sum , sort, group
 	//todo replace-chars
 
+	//cat ~/tmp/topics.txt | csv row[1:] col[2,3,4,6] mr#group:[3]
+	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group:[0]#sort:[1]
+	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group:[0]#sort:[1]:desc
+	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group:[0]#sort:[0]:asc#sum:row
+	//cat ~/tmp/topics.txt | csv row[1:] col[2,3,4] mr#sum:row
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group:[0,1]#sort:[1]:asc merge:tab => 2 group by keys
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group:[0,1]#sort:[2]:desc#sum:row
+
 	for _, arg := range args[1:] {
 		if strings.HasPrefix(arg, "lmerge") {
 			csvFmt.IsLMerge = true
@@ -95,10 +100,13 @@ func HandleCsv(args []string) {
 		} else if strings.Index(arg, "wrap:") == 0 {
 			csvFmt.Wrap = extractDelim(arg, "wrap:")
 		} else if strings.HasPrefix(arg, "fmt") {
-			processFmtArguments(arg, csvFmt)
+			processFmtArguments(arg, &csvFmt)
+		} else if strings.HasPrefix(arg, "mr") {
+			processMrArguments(arg, &csvFmt)
 		}
 	}
 	csvFmt.HasReducer = hasReducer(csvFmt)
+	csvFmt.HasMrReducer = hasMrReducer(csvFmt.MapRed)
 
 	//fmt.Printf("[%+v] \n", csvFmt)
 
@@ -112,81 +120,308 @@ func HandleCsv(args []string) {
 		processCsv(file, csvFmt)
 	} else {
 		scanner := bufio.NewScanner(file)
-		processor := LineProcessor{csvFmt: csvFmt}
+		processor := LineProcessor{csvFmt: &csvFmt}
 		for scanner.Scan() {
-			processor.processRow(scanner.Text())
+			processor.processRow(func() []string {
+				return strings.Split(scanner.Text(), csvFmt.Delim)
+			})
 		}
-		if csvFmt.IsLMerge {
-			fmt.Printf("%s\n", strings.Join(processor.Lines, csvFmt.LMerge))
-		}
+		processLines(&csvFmt, &processor)
 	}
 }
 
 func processCsv(file *os.File, csvFmt CsvFormat) {
 	reader := csv.NewReader(bufio.NewReader(file))
-	processor := LineProcessor{csvFmt: csvFmt}
+	processor := LineProcessor{csvFmt: &csvFmt}
 	for {
 		words, _ := reader.Read()
 		if words == nil {
 			break
 		}
-		processor.processRowCols(words)
+		processor.processRow(func() []string { return words })
 	}
+	processLines(&csvFmt, &processor)
+}
 
+func processLines(csvFmt *CsvFormat, processor *LineProcessor) {
+	if len(processor.Lines) <= 0 {
+		return
+	}
 	if csvFmt.IsLMerge {
-		fmt.Printf("%s\n", strings.Join(processor.Lines, csvFmt.LMerge))
+		var lines []string
+		for _, words := range processor.Lines {
+			lines = append(lines, strings.Join(words, csvFmt.Merge))
+		}
+		fmt.Printf("%s\n", strings.Join(lines, csvFmt.LMerge))
+	} else if csvFmt.MapRed != nil {
+		if csvFmt.MapRed.GroupBy != nil {
+			applyGroupBy(csvFmt, processor, csvFmt.MapRed)
+		} else if csvFmt.MapRed.Sum == "row" {
+			applyRowSum(csvFmt, processor.Lines)
+		} else {
+			applyColSum(csvFmt, processor)
+		}
 	}
 }
 
-func (p *LineProcessor) processRow(line string) {
-	csvFmt := p.csvFmt
-	if isWithInBounds(csvFmt.RowExt, p.RowIndex) {
-		words := strings.Split(line, csvFmt.Delim)
-		words = extractCsv(words, csvFmt.ColExt, csvFmt.ColFmtMap)
-		pLine := processWords(words, csvFmt)
-		if csvFmt.HasReducer {
-			p.Lines = append(p.Lines, pLine)
-		} else {
-			fmt.Printf("%s\n", pLine)
+func applyRowSum(csvFmt *CsvFormat, lines [][]string) {
+	for _, words := range lines {
+		var rowSum int64
+		for _, word := range words {
+			val, err := strconv.ParseInt(word, 10, 64)
+			if err != nil {
+				//fmt.Println("Cannot convert %s to number ", err)
+			} else {
+				rowSum += val
+			}
 		}
+		printLine([]string{strconv.FormatInt(rowSum, 10)}, csvFmt)
 	}
-	p.RowIndex = p.RowIndex + 1
 }
 
-func (p *LineProcessor) processRowCols(words []string) {
-	csvFmt := p.csvFmt
-	if isWithInBounds(csvFmt.RowExt, p.RowIndex) {
-		words = extractCsv(words, csvFmt.ColExt, csvFmt.ColFmtMap)
-		line := processWords(words, csvFmt)
-		if csvFmt.HasReducer {
-			p.Lines = append(p.Lines, line)
-		} else {
-			fmt.Printf("%s\n", line)
+func applyColSum(csvFmt *CsvFormat, processor *LineProcessor) {
+	cols := len(processor.Lines[0])
+	var row = make([]int64, cols)
+	for _, words := range processor.Lines {
+		for i, word := range words {
+			val, err := strconv.ParseInt(word, 10, 64)
+			if err != nil {
+				//fmt.Println("Cannot convert %s to number ", err)
+			} else {
+				row[i] = row[i] + val
+			}
 		}
 	}
-	p.RowIndex = p.RowIndex + 1
+	var words = make([]string, cols)
+	for i, val := range row {
+		words[i] = strconv.FormatInt(val, 10)
+	}
+	printLine(words, csvFmt)
+}
+
+func pickWords(words []string, indices []int) []string {
+	var vals []string
+	for _, index := range indices {
+		vals = append(vals, words[index])
+	}
+	return vals
+}
+
+func applyGroupBy(csvFmt *CsvFormat, processor *LineProcessor, mapRed *MapRed) {
+	firstRow := processor.Lines[0]
+	//compute the groupByIndices
+	groupBy := mapRed.GroupBy
+	groupByIndices := common.GetFilterStrIndices(common.ApplyRange(firstRow, groupBy))
+
+	//compute non-groupByIndices
+	var nonGroupByIndices []int
+	for i := 0; i < len(firstRow); i++ {
+		if !common.BruteIntContains(groupByIndices, i) {
+			nonGroupByIndices = append(nonGroupByIndices, i)
+		}
+	}
+	groupMap := make(map[string][]int64)
+	for _, words := range processor.Lines {
+		groupByKey := strings.Join(pickWords(words, groupByIndices), ":==:")
+		row, ok := groupMap[groupByKey]
+		if !ok {
+			row = make([]int64, len(firstRow)-len(groupByIndices))
+			groupMap[groupByKey] = row
+		}
+		valWords := pickWords(words, nonGroupByIndices)
+		for i, word := range valWords {
+			val, err := strconv.ParseInt(word, 10, 64)
+			if err != nil {
+				//fmt.Println("Cannot convert %s to number ", err)
+			} else {
+				row[i] = row[i] + val
+			}
+		}
+	}
+	hasReducer := hasMrReducer(mapRed)
+	var array [][]interface{}
+	for k, v := range groupMap {
+		keys := strings.Split(k, ":==:")
+		keyCount := len(keys)
+		if mapRed.Sum == "row" {
+			var rowSum int64
+			for _, val := range v {
+				rowSum += val
+			}
+			if hasReducer {
+				words := make([]interface{}, keyCount+1)
+				for i, key := range keys {
+					words[i] = key
+				}
+				words[keyCount] = rowSum
+				array = append(array, words)
+			} else {
+				words := make([]string, keyCount+1)
+				for i, key := range keys {
+					words[i] = key
+				}
+				words[keyCount] = strconv.FormatInt(rowSum, 10)
+				printLine(words, csvFmt)
+			}
+		} else {
+			if hasReducer {
+				words := make([]interface{}, keyCount+len(v))
+				for i, key := range keys {
+					words[i] = key
+				}
+				for i, val := range v {
+					words[i+keyCount] = val
+				}
+				array = append(array, words)
+			} else {
+				words := make([]string, keyCount+len(v))
+				for i, key := range keys {
+					words[i] = key
+				}
+				for i, val := range v {
+					words[i+keyCount] = strconv.FormatInt(val, 10)
+				}
+				printLine(words, csvFmt)
+			}
+		}
+	}
+	if hasReducer {
+		applySort(array, csvFmt)
+	}
+}
+
+type ISort struct {
+	Items   [][]interface{}
+	Indices []int
+	Desc    bool
+}
+
+func (s *ISort) Len() int {
+	return len(s.Items)
+}
+func (s *ISort) Swap(i, j int) {
+	items := s.Items
+	items[i], items[j] = items[j], items[i]
+}
+func (s *ISort) Less(i, j int) bool {
+	one := s.Items[i]
+	two := s.Items[j]
+	index := s.Indices[0] //todo multi sort cols
+	compare := s.Compare(one[index], two[index])
+	if s.Desc {
+		return !compare
+	}
+	return compare
+}
+
+func (s *ISort) Compare(one interface{}, two interface{}) bool {
+	switch one.(type) {
+	case int64:
+		return one.(int64) < two.(int64)
+	default:
+		return fmt.Sprintf("%v", one) < fmt.Sprintf("%v", two)
+	}
+}
+
+func applySort(lines [][]interface{}, csvFmt *CsvFormat) {
+	sortDef := csvFmt.MapRed.SortDef
+	sortCols := sortDef.SortCols
+	applyRange := *common.IApplyRange(lines[0], sortCols)
+	var indices []int
+	for _, item := range applyRange {
+		indices = append(indices, item.Index)
+	}
+	iSort := &ISort{
+		Items:   lines,
+		Indices: indices,
+		Desc:    sortDef.Desc,
+	}
+	sort.Sort(iSort)
+	for _, line := range lines {
+		var vals []string
+		for _, word := range line {
+			vals = append(vals, fmt.Sprintf("%v", word))
+		}
+		printLine(vals, csvFmt)
+	}
+}
+
+func printLine(words []string, csvFmt *CsvFormat) {
+	line := strings.Join(words, csvFmt.Merge)
+	if csvFmt.Wrap != "" {
+		line = csvFmt.Wrap + line + csvFmt.Wrap
+	}
+	fmt.Printf("%s\n", line)
 }
 
 func hasReducer(csvFmt CsvFormat) bool {
-	if csvFmt.IsLMerge {
+	if csvFmt.IsLMerge || csvFmt.MapRed != nil {
 		return true
 	}
 	return false
 }
 
-func processWords(words []string, csvFmt CsvFormat) string {
-	var vals []string
-	for _, word := range words {
-		vals = append(vals, word)
-	}
-	line := strings.Join(vals, csvFmt.Merge)
-	if csvFmt.Wrap != "" {
-		return csvFmt.Wrap + line + csvFmt.Wrap
-	}
-	return line
+//func processWords(words []string, csvFmt *CsvFormat) []string {
+//	var vals []string
+//	for _, word := range words {
+//		vals = append(vals, word)
+//	}
+//	//line := strings.Join(vals, csvFmt.Merge)
+//	//if csvFmt.Wrap != "" {
+//	//	return csvFmt.Wrap + line + csvFmt.Wrap
+//	//}
+//	return vals
+//}
+
+func hasMrReducer(mapRed *MapRed) bool {
+	return mapRed != nil && mapRed.SortDef != nil
 }
 
-func processFmtArguments(command string, csvFmt CsvFormat) {
+type MapRed struct {
+	Sum     string
+	GroupBy *common.IntRange
+	SortDef *SortDef
+}
+
+type SortDef struct {
+	SortCols *common.IntRange
+	Desc     bool
+}
+
+func processMrArguments(command string, csvFmt *CsvFormat) {
+	chars := []rune(command)
+	sep := string(chars[2])
+	parts := strings.Split(command, sep)
+	mapRed := MapRed{}
+	for _, part := range parts[1:] {
+		if strings.Index(part, "sum") != -1 {
+			split := strings.Split(part, ":")
+			if len(split) == 1 {
+				mapRed.Sum = "col"
+			} else {
+				mapRed.Sum = split[1]
+			}
+		} else if strings.Index(part, "group:") != -1 {
+			split := strings.Split(part, ":")[1:]
+			mapRed.GroupBy = extractCsvIndexArg(split[0])
+		} else if strings.Index(part, "sort:") != -1 {
+			split := strings.Split(part, ":")[1:]
+			sort := &SortDef{}
+			sort.SortCols = extractCsvIndexArg(split[0])
+			if len(split) > 1 {
+				if split[1] == "desc" {
+					sort.Desc = true
+				} else {
+					sort.Desc = false
+				}
+			}
+			mapRed.SortDef = sort
+		}
+	}
+	csvFmt.MapRed = &mapRed
+}
+
+func processFmtArguments(command string, csvFmt *CsvFormat) {
 	chars := []rune(command)
 	sep := string(chars[3])
 	parts := strings.Split(command, sep)
@@ -306,7 +541,7 @@ func isWithInBounds(ext *common.IntRange, idx int) bool {
 func extractCsvIndexArg(arg string) *common.IntRange {
 	start := strings.Index(arg, "[")
 	end := strings.Index(arg, "]")
-	if start > 0 && end > start {
+	if start >= 0 && end > start {
 		str := string(([]rune(arg))[start+1 : end])
 		return common.ParseRange(str)
 	} else {
