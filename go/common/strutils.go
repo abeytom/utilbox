@@ -104,8 +104,16 @@ func StrToIntP(str string, def *int) *int {
 
 func GetFilterStrIndices(filters *[]FilterStr) []int {
 	var indices []int
-	for i, _ := range *filters {
-		indices = append(indices, i)
+	for _, item := range *filters {
+		indices = append(indices, item.Index)
+	}
+	return indices
+}
+
+func GetFilterItemIndices(filters *[]FilterItem) []int {
+	var indices []int
+	for _, item := range *filters {
+		indices = append(indices, item.Index)
 	}
 	return indices
 }

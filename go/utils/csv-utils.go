@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"github.com/abeytom/utilbox/common"
 	"os"
@@ -37,6 +38,23 @@ type CsvFormat struct {
 	HasReducer   bool
 	MapRed       *MapRed
 	HasMrReducer bool
+	OutputDef    *OutputDef
+}
+
+type MapRed struct {
+	Sum     string
+	GroupBy *common.IntRange
+	SortDef *SortDef
+}
+
+type SortDef struct {
+	SortCols *common.IntRange
+	Desc     bool
+}
+
+type OutputDef struct {
+	Type    string
+	Columns []string
 }
 
 func HandleCsv(args []string) {
@@ -79,6 +97,10 @@ func HandleCsv(args []string) {
 	//cat ~/tmp/topics.txt | csv row[1:] col[2,3,4] mr#sum:row
 	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group:[0,1]#sort:[1]:asc merge:tab => 2 group by keys
 	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group:[0,1]#sort:[2]:desc#sum:row
+	// cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group:[0,1],,sort:[2] out..json..cols:topic:groups:group:in:out:lag
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group:[0,1],,sort:[2] out..json..cols:topic:groups:group:in:out:lag => One Group
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group:[0,1],,sort:[2] out..json..cols:topic:groups:group:stats:in:out:lag => 2 Level JSON
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,1,2,3,4] mr,,group:[0,1,2],,sort:[2] out..json..cols:topic:consumerGroups:consumerGroup:partitionStats:partition:in:out:lag => 2 Level JSON
 
 	for _, arg := range args[1:] {
 		if strings.HasPrefix(arg, "lmerge") {
@@ -103,6 +125,8 @@ func HandleCsv(args []string) {
 			processFmtArguments(arg, &csvFmt)
 		} else if strings.HasPrefix(arg, "mr") {
 			processMrArguments(arg, &csvFmt)
+		} else if strings.HasPrefix(arg, "out") {
+			processOutputArgs(arg, &csvFmt)
 		}
 	}
 	csvFmt.HasReducer = hasReducer(csvFmt)
@@ -209,141 +233,150 @@ func pickWords(words []string, indices []int) []string {
 
 func applyGroupBy(csvFmt *CsvFormat, processor *LineProcessor, mapRed *MapRed) {
 	firstRow := processor.Lines[0]
-	//compute the groupByIndices
+	//compute the keyIndices
 	groupBy := mapRed.GroupBy
-	groupByIndices := common.GetFilterStrIndices(common.ApplyRange(firstRow, groupBy))
+	keyIndices := common.GetFilterStrIndices(common.ApplyRange(firstRow, groupBy))
 
-	//compute non-groupByIndices
-	var nonGroupByIndices []int
+	//compute valueIndices
+	var valueIndices []int
 	for i := 0; i < len(firstRow); i++ {
-		if !common.BruteIntContains(groupByIndices, i) {
-			nonGroupByIndices = append(nonGroupByIndices, i)
+		if !common.BruteIntContains(keyIndices, i) {
+			valueIndices = append(valueIndices, i)
 		}
 	}
-	groupMap := make(map[string][]int64)
+	groupMap := GroupMap{
+		KeyIndices:   keyIndices,
+		ValueIndices: valueIndices,
+		CsvFormat:    csvFmt,
+	}
 	for _, words := range processor.Lines {
-		groupByKey := strings.Join(pickWords(words, groupByIndices), ":==:")
-		row, ok := groupMap[groupByKey]
-		if !ok {
-			row = make([]int64, len(firstRow)-len(groupByIndices))
-			groupMap[groupByKey] = row
-		}
-		valWords := pickWords(words, nonGroupByIndices)
-		for i, word := range valWords {
-			val, err := strconv.ParseInt(word, 10, 64)
-			if err != nil {
-				//fmt.Println("Cannot convert %s to number ", err)
-			} else {
-				row[i] = row[i] + val
-			}
-		}
+		keys := pickWords(words, keyIndices)
+		values := pickWords(words, valueIndices)
+		groupMap.Put(keys, values)
 	}
-	hasReducer := hasMrReducer(mapRed)
-	var array [][]interface{}
-	for k, v := range groupMap {
-		keys := strings.Split(k, ":==:")
-		keyCount := len(keys)
-		if mapRed.Sum == "row" {
-			var rowSum int64
-			for _, val := range v {
-				rowSum += val
-			}
-			if hasReducer {
-				words := make([]interface{}, keyCount+1)
-				for i, key := range keys {
-					words[i] = key
-				}
-				words[keyCount] = rowSum
-				array = append(array, words)
-			} else {
-				words := make([]string, keyCount+1)
-				for i, key := range keys {
-					words[i] = key
-				}
-				words[keyCount] = strconv.FormatInt(rowSum, 10)
-				printLine(words, csvFmt)
-			}
-		} else {
-			if hasReducer {
-				words := make([]interface{}, keyCount+len(v))
-				for i, key := range keys {
-					words[i] = key
-				}
-				for i, val := range v {
-					words[i+keyCount] = val
-				}
-				array = append(array, words)
-			} else {
-				words := make([]string, keyCount+len(v))
-				for i, key := range keys {
-					words[i] = key
-				}
-				for i, val := range v {
-					words[i+keyCount] = strconv.FormatInt(val, 10)
-				}
-				printLine(words, csvFmt)
-			}
-		}
+	dataRows := groupMap.PostProcess()
+	if mapRed.SortDef != nil {
+		applySort(dataRows, csvFmt)
 	}
-	if hasReducer {
-		applySort(array, csvFmt)
+	if csvFmt.OutputDef != nil && csvFmt.OutputDef.Type == "json" {
+		processJsonOutput(dataRows, csvFmt)
+		return
 	}
-}
 
-type ISort struct {
-	Items   [][]interface{}
-	Indices []int
-	Desc    bool
-}
-
-func (s *ISort) Len() int {
-	return len(s.Items)
-}
-func (s *ISort) Swap(i, j int) {
-	items := s.Items
-	items[i], items[j] = items[j], items[i]
-}
-func (s *ISort) Less(i, j int) bool {
-	one := s.Items[i]
-	two := s.Items[j]
-	index := s.Indices[0] //todo multi sort cols
-	compare := s.Compare(one[index], two[index])
-	if s.Desc {
-		return !compare
-	}
-	return compare
-}
-
-func (s *ISort) Compare(one interface{}, two interface{}) bool {
-	switch one.(type) {
-	case int64:
-		return one.(int64) < two.(int64)
-	default:
-		return fmt.Sprintf("%v", one) < fmt.Sprintf("%v", two)
-	}
-}
-
-func applySort(lines [][]interface{}, csvFmt *CsvFormat) {
-	sortDef := csvFmt.MapRed.SortDef
-	sortCols := sortDef.SortCols
-	applyRange := *common.IApplyRange(lines[0], sortCols)
-	var indices []int
-	for _, item := range applyRange {
-		indices = append(indices, item.Index)
-	}
-	iSort := &ISort{
-		Items:   lines,
-		Indices: indices,
-		Desc:    sortDef.Desc,
-	}
-	sort.Sort(iSort)
-	for _, line := range lines {
+	for _, row := range dataRows {
 		var vals []string
-		for _, word := range line {
+		for _, word := range row.Cols {
 			vals = append(vals, fmt.Sprintf("%v", word))
 		}
 		printLine(vals, csvFmt)
 	}
+}
+
+func processJsonOutput(rows []DataRow, csvFmt *CsvFormat) {
+	fields := csvFmt.OutputDef.Columns
+	levels := len(fields) - len(rows[0].Cols)
+	if levels < 0 {
+		fmt.Printf("Invalid json cols, expected atleast %v\n", len(rows[0].Cols))
+		return
+	}
+	if levels == 0 {
+		array := make([]map[string]interface{}, 0)
+		for _, row := range rows {
+			colMap := make(map[string]interface{})
+			for i, col := range row.Cols {
+				colMap[fields[i]] = col
+			}
+			array = append(array, colMap)
+		}
+		printJson(array)
+	} else {
+		outMap := make(map[string]map[string]interface{})
+		for _, row := range rows {
+			processJsonLevel(&row, 0, fields, outMap)
+		}
+		//unwrap Json
+		printJson(unwrapJsonMap(0, levels, outMap))
+	}
+}
+
+func printJson(array []map[string]interface{}) {
+	buf, err := json.Marshal(array)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Printf("%s\n", buf)
+}
+
+func unwrapJsonMap(level int, levels int, dataMap map[string]map[string]interface{}) []map[string]interface{} {
+	var array []map[string]interface{}
+	for _, valueMap := range dataMap {
+		for key, value := range valueMap {
+			switch value.(type) {
+			case map[string]map[string]interface{}:
+				valueMap[key] = unwrapJsonMap(level, levels, value.(map[string]map[string]interface{}))
+			}
+		}
+		array = append(array, valueMap)
+	}
+	return array
+}
+
+func processJsonLevel(row *DataRow, level int, fields []string, dataMap map[string]map[string]interface{}) {
+	levels := len(fields) - len(row.Cols)
+	fieldIdx := level * 2
+	fieldName := fields[fieldIdx]
+	colName := row.Cols[level].(string)
+	colMap, exists := dataMap[colName]
+	if !exists {
+		colMap = make(map[string]interface{})
+		dataMap[colName] = colMap
+	}
+	colMap[fieldName] = colName
+	fieldIdx++
+	nFieldName := fields[fieldIdx]
+	//fmt.Println("level=", level, "levels=", levels, "fieldName=", fieldName, "colName=", colName, "nextField=", nFieldName)
+	if level == levels-1 {
+		_, exists := colMap[nFieldName]
+		if !exists {
+			colMap[nFieldName] = make([]map[string]interface{}, 0)
+		}
+		fieldIdx++
+		subArray := colMap[nFieldName].([]map[string]interface{})
+		subMap := make(map[string]interface{})
+		colIdx := level + 1
+
+		for i := fieldIdx; i < len(fields); i++ {
+			//fmt.Println("fieldIndex=", i, len(fields))
+			//fmt.Println("colIndex=", colIdx, len(row.Cols))
+			subMap[fields[i]] = row.Cols[colIdx]
+			colIdx++
+		}
+		subArray = append(subArray, subMap)
+		colMap[nFieldName] = subArray // i dont like this, need to use an object
+	} else {
+		nextColMap, exists := colMap[nFieldName]
+		if !exists {
+			nextColMap = make(map[string]map[string]interface{})
+			colMap[nFieldName] = nextColMap
+		}
+		//fmt.Println("--------- NEXT ------------")
+		processJsonLevel(row, level+1, fields, nextColMap.(map[string]map[string]interface{}))
+	}
+}
+
+func applySort(rows []DataRow, csvFmt *CsvFormat) {
+	if len(rows) == 0 {
+		return
+	}
+	sortDef := csvFmt.MapRed.SortDef
+	sortCols := sortDef.SortCols
+	sortIndices := common.GetFilterItemIndices(common.IApplyRange(rows[0].Cols, sortCols))
+	rowSort := &DataRowSort{
+		Rows:    rows,
+		Indices: sortIndices,
+		Desc:    sortDef.Desc,
+	}
+	sort.Sort(rowSort)
 }
 
 func printLine(words []string, csvFmt *CsvFormat) {
@@ -361,39 +394,42 @@ func hasReducer(csvFmt CsvFormat) bool {
 	return false
 }
 
-//func processWords(words []string, csvFmt *CsvFormat) []string {
-//	var vals []string
-//	for _, word := range words {
-//		vals = append(vals, word)
-//	}
-//	//line := strings.Join(vals, csvFmt.Merge)
-//	//if csvFmt.Wrap != "" {
-//	//	return csvFmt.Wrap + line + csvFmt.Wrap
-//	//}
-//	return vals
-//}
-
 func hasMrReducer(mapRed *MapRed) bool {
 	return mapRed != nil && mapRed.SortDef != nil
 }
 
-type MapRed struct {
-	Sum     string
-	GroupBy *common.IntRange
-	SortDef *SortDef
+func parseInlineCommand(cmd string, cmdline string) []string {
+	chars := []rune(cmdline)
+	r := chars[len(cmd)]
+	var sep []rune
+	sep = append(sep, r)
+	for i := len(cmd) + 1; i < len(chars); i++ {
+		if chars[i] != r {
+			break
+		}
+		sep = append(sep, chars[i])
+	}
+	return strings.Split(cmdline, string(sep))
 }
 
-type SortDef struct {
-	SortCols *common.IntRange
-	Desc     bool
+func processOutputArgs(command string, c *CsvFormat) {
+	parts := parseInlineCommand("out", command)
+	if parts[1] == "json" {
+		def := OutputDef{}
+		def.Type = "json"
+		for _, arg := range parts[2:] {
+			if strings.Index(arg, "cols:") == 0 {
+				def.Columns = strings.Split(arg, ":")[1:]
+			}
+		}
+		c.OutputDef = &def
+	}
 }
 
 func processMrArguments(command string, csvFmt *CsvFormat) {
-	chars := []rune(command)
-	sep := string(chars[2])
-	parts := strings.Split(command, sep)
 	mapRed := MapRed{}
-	for _, part := range parts[1:] {
+	parts := parseInlineCommand("mr", command)[1:]
+	for _, part := range parts {
 		if strings.Index(part, "sum") != -1 {
 			split := strings.Split(part, ":")
 			if len(split) == 1 {
@@ -422,9 +458,7 @@ func processMrArguments(command string, csvFmt *CsvFormat) {
 }
 
 func processFmtArguments(command string, csvFmt *CsvFormat) {
-	chars := []rune(command)
-	sep := string(chars[3])
-	parts := strings.Split(command, sep)
+	parts := parseInlineCommand("fmt", command)
 	colIndex, err := strconv.Atoi(strings.Replace(parts[1], "c", "", 1))
 	if err != nil {
 		panic("Invalid col index for formatting" + parts[1])
@@ -438,9 +472,9 @@ func processFmtArguments(command string, csvFmt *CsvFormat) {
 		} else if strings.Index(part, "wrap:") == 0 {
 			format.Wrap = extractDelim(part, "wrap:")
 		} else if strings.Index(part, "sfx:") == 0 {
-			format.Suffix = extractDelim(part, "sfx:")
+			format.Suffix = extractArg(part, "sfx:")
 		} else if strings.Index(part, "pfx:") == 0 {
-			format.Prefix = extractDelim(part, "pfx:")
+			format.Prefix = extractArg(part, "pfx:")
 		} else if strings.Index(part, "col[") == 0 {
 			format.ColExt = extractCsvIndexArg(part)
 		} else if strings.Index(part, "ncol[") == 0 {
@@ -449,6 +483,10 @@ func processFmtArguments(command string, csvFmt *CsvFormat) {
 		}
 	}
 	csvFmt.ColFmtMap[colIndex] = format
+}
+
+func extractArg(arg string, prefix string) string {
+	return strings.Replace(arg, prefix, "", 1)
 }
 
 func extractDelim(arg string, prefix string) string {
