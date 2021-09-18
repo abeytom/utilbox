@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"unicode"
@@ -156,4 +157,34 @@ func BruteIntContains(s []int, e int) bool {
 		}
 	}
 	return false
+}
+
+type IntSet struct {
+	values map[int]struct{}
+}
+
+func (s *IntSet) Add(val int) {
+	if s.values == nil {
+		s.values = make(map[int]struct{})
+	}
+	s.values[val] = void
+}
+
+func (s *IntSet) Contains(val int) bool {
+	_, exists := s.values[val]
+	return exists
+}
+
+func (s *IntSet) Values() []int {
+	keys := make([]int, len(s.values))
+	i := 0
+	for k := range s.values {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
+func (s *IntSet) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.Values())
 }

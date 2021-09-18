@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"github.com/Knetic/govaluate"
 	"github.com/abeytom/utilbox/common"
 	"os"
 	"sort"
@@ -13,7 +14,7 @@ import (
 )
 
 type ColumnFormat struct {
-	Delim  string
+	Split  string
 	Merge  string
 	ColExt *common.IntRange
 	Wrap   string
@@ -27,18 +28,21 @@ type CsvInjectArgs struct {
 }
 
 type CsvFormat struct {
-	ColFmtMap    map[int]ColumnFormat
+	ColFmtMap    map[int][]ColumnFormat
 	ColExt       *common.IntRange
 	RowExt       *common.IntRange
-	Delim        string
+	Split        string
 	Merge        string
 	IsLMerge     bool
 	LMerge       string
 	Wrap         string
-	HasReducer   bool
+	HasWholeOpr  bool
 	MapRed       *MapRed
 	HasMrReducer bool
 	OutputDef    *OutputDef
+	SortDef      *SortDef
+	HeaderDef    *HeaderDef
+	CalcDefs     []CalcDef
 }
 
 type MapRed struct {
@@ -53,8 +57,21 @@ type SortDef struct {
 }
 
 type OutputDef struct {
-	Type    string
-	Columns []string
+	Type   string
+	Fields []string
+	Levels int
+}
+
+type HeaderDef struct {
+	Fields []string
+}
+
+type CalcDef struct {
+	RawExpr    string
+	ParsedExpr string
+	Indices    *common.IntSet
+	EvalExpr   *govaluate.EvaluableExpression
+	FieldName  string
 }
 
 func HandleCsv(args []string) {
@@ -72,15 +89,14 @@ func HandleCsv(args []string) {
 	//fmt.Printf("The args are %s\n", args)
 
 	filePath := args[0]
-	csvFmt := CsvFormat{
-		ColFmtMap: map[int]ColumnFormat{},
-		ColExt:    &common.IntRange{},
-		RowExt:    &common.IntRange{},
-		Delim:     " ",
-		Merge:     ",",
-		LMerge:    ",",
-		Wrap:      "",
-		IsLMerge:  false,
+	csvFmt := &CsvFormat{
+		ColExt:   &common.IntRange{},
+		RowExt:   &common.IntRange{},
+		Split:    " ",
+		Merge:    "csv",
+		LMerge:   ",",
+		Wrap:     "",
+		IsLMerge: false,
 	}
 	//kc get svc | csv row[1:] col[0-3,5] fmt#c4#split:/#merge:-#col[0,1] fmt#c2#split:.#merge:: merge:'|' lmerge:===
 	//kc get svc | csv row[1:] col[0,4] merge:: fmt.c0.pfx:'curl http://'  fmt.c4.split:/.col[0].sfx:'/actuator/health' wrap:dquote
@@ -90,17 +106,24 @@ func HandleCsv(args []string) {
 	//todo sum , sort, group
 	//todo replace-chars
 
-	//cat ~/tmp/topics.txt | csv row[1:] col[2,3,4,6] mr#group:[3]
-	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group:[0]#sort:[1]
-	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group:[0]#sort:[1]:desc
-	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group:[0]#sort:[0]:asc#sum:row
+	//cat ~/tmp/topics.txt | csv row[1:] col[2,3,4,6] mr#group[3]
+	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group[0]#sort[1]
+	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group[0]#sort[1]:desc
+	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group[0]#sort[0]:asc#sum:row
 	//cat ~/tmp/topics.txt | csv row[1:] col[2,3,4] mr#sum:row
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group:[0,1]#sort:[1]:asc merge:tab => 2 group by keys
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group:[0,1]#sort:[2]:desc#sum:row
-	// cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group:[0,1],,sort:[2] out..json..cols:topic:groups:group:in:out:lag
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group:[0,1],,sort:[2] out..json..cols:topic:groups:group:in:out:lag => One Group
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group:[0,1],,sort:[2] out..json..cols:topic:groups:group:stats:in:out:lag => 2 Level JSON
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,1,2,3,4] mr,,group:[0,1,2],,sort:[2] out..json..cols:topic:consumerGroups:consumerGroup:partitionStats:partition:in:out:lag => 2 Level JSON
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group[0,1]#sort[1]:asc merge:tab => 2 group by keys
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group[0,1]#sort[2]:desc#sum:row
+	// cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group[0,1],,sort[2] out..json..cols:topic:groups:group:in:out:lag
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group[0,1],,sort[2] out..json..cols:topic:groups:group:in:out:lag => One Group
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group[0,1],,sort[2] out..json..cols:topic:groups:group:stats:in:out:lag => 2 Level JSON
+	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group[0:2],,sort[2]:desc out..json..fields[topic,groups,group,in,out,lag]
+	/*
+		# Chained format on the same column
+		cat ~/kdev_default_svc.txt | csv  out#csv fmt#c4#split:comma#col[-1]  fmt#c4#split:/#col[0] fmt#c4#split::#col[-1]
+		# merged string fields
+		cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr..group[0]..sort[2]:desc out..json
+		cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr..group[0]..sort[2]:desc out..json..levels:1
+	*/
 
 	for _, arg := range args[1:] {
 		if strings.HasPrefix(arg, "lmerge") {
@@ -117,19 +140,25 @@ func HandleCsv(args []string) {
 		} else if strings.Index(arg, "ncol[") == 0 {
 			csvFmt.ColExt = extractCsvIndexArg(arg)
 			csvFmt.ColExt.Exclude = true
+		} else if strings.Index(arg, "sort[") == 0 {
+			csvFmt.SortDef = extractSort(arg)
 		} else if strings.Index(arg, "split:") == 0 {
-			csvFmt.Delim = extractDelim(arg, "split:")
+			csvFmt.Split = extractDelim(arg, "split:")
 		} else if strings.Index(arg, "wrap:") == 0 {
 			csvFmt.Wrap = extractDelim(arg, "wrap:")
 		} else if strings.HasPrefix(arg, "fmt") {
-			processFmtArguments(arg, &csvFmt)
+			processFmtArguments(arg, csvFmt)
 		} else if strings.HasPrefix(arg, "mr") {
-			processMrArguments(arg, &csvFmt)
+			processMrArguments(arg, csvFmt)
 		} else if strings.HasPrefix(arg, "out") {
-			processOutputArgs(arg, &csvFmt)
+			processOutputArgs(arg, csvFmt)
+		} else if strings.HasPrefix(arg, "head") {
+			csvFmt.HeaderDef = extractHeaderDef(arg)
+		} else if strings.HasPrefix(arg, "calc") {
+			extractCalcDef(arg, csvFmt)
 		}
 	}
-	csvFmt.HasReducer = hasReducer(csvFmt)
+	csvFmt.HasWholeOpr = hasWholeOpr(csvFmt)
 	csvFmt.HasMrReducer = hasMrReducer(csvFmt.MapRed)
 
 	//fmt.Printf("[%+v] \n", csvFmt)
@@ -140,23 +169,24 @@ func HandleCsv(args []string) {
 	}
 	defer file.Close()
 
-	if csvFmt.Delim == "csv" {
+	if csvFmt.Split == "csv" {
 		processCsv(file, csvFmt)
 	} else {
 		scanner := bufio.NewScanner(file)
-		processor := LineProcessor{csvFmt: &csvFmt}
+		processor := NewLineProcessor(csvFmt)
 		for scanner.Scan() {
 			processor.processRow(func() []string {
-				return strings.Split(scanner.Text(), csvFmt.Delim)
+				return strings.Split(scanner.Text(), csvFmt.Split)
 			})
 		}
-		processLines(&csvFmt, &processor)
+		processLines(csvFmt, processor)
+		processor.Close()
 	}
 }
 
-func processCsv(file *os.File, csvFmt CsvFormat) {
+func processCsv(file *os.File, csvFmt *CsvFormat) {
 	reader := csv.NewReader(bufio.NewReader(file))
-	processor := LineProcessor{csvFmt: &csvFmt}
+	processor := NewLineProcessor(csvFmt)
 	for {
 		words, _ := reader.Read()
 		if words == nil {
@@ -164,32 +194,80 @@ func processCsv(file *os.File, csvFmt CsvFormat) {
 		}
 		processor.processRow(func() []string { return words })
 	}
-	processLines(&csvFmt, &processor)
+	processLines(csvFmt, processor)
+	processor.Close()
 }
 
 func processLines(csvFmt *CsvFormat, processor *LineProcessor) {
 	if len(processor.Lines) <= 0 {
 		return
 	}
-	if csvFmt.IsLMerge {
-		var lines []string
-		for _, words := range processor.Lines {
-			lines = append(lines, strings.Join(words, csvFmt.Merge))
-		}
-		fmt.Printf("%s\n", strings.Join(lines, csvFmt.LMerge))
-	} else if csvFmt.MapRed != nil {
+	if csvFmt.MapRed != nil {
 		if csvFmt.MapRed.GroupBy != nil {
 			applyGroupBy(csvFmt, processor, csvFmt.MapRed)
 		} else if csvFmt.MapRed.Sum == "row" {
-			applyRowSum(csvFmt, processor.Lines)
+			applyRowSum(csvFmt, processor)
 		} else {
 			applyColSum(csvFmt, processor)
+		}
+	} else {
+		dataRows := toDataRows(processor)
+		dataRows = applyCalcAll(csvFmt, dataRows)
+		if csvFmt.SortDef != nil {
+			dataRows = convertAndApplySort(csvFmt, dataRows)
+		}
+		if csvFmt.IsLMerge {
+			//todo use csv to create row
+			var lines []string
+			for _, row := range dataRows {
+				var words []string
+				for _, word := range row.Cols {
+					var str string
+					switch word.(type) {
+					case *common.StringSet:
+						str = (word.(*common.StringSet)).ToString()
+					default:
+						str = fmt.Sprintf("%v", word)
+					}
+					words = append(words, str)
+				}
+				lines = append(lines, strings.Join(words, csvFmt.Merge))
+			}
+			fmt.Printf("%s\n", strings.Join(lines, csvFmt.LMerge))
+		} else if csvFmt.OutputDef != nil {
+			def := csvFmt.OutputDef
+			if def.Type == "json" {
+				csvFmt.OutputDef.Levels = 0
+				headers := applyCalcHeaders(csvFmt, GetHeaders(processor))
+				processJsonOutput(dataRows, csvFmt, headers, 0)
+			} else if def.Type == "table" {
+				headers := applyCalcHeaders(csvFmt, GetHeaders(processor))
+				processTableOutput(dataRows, csvFmt, headers)
+			} else {
+				printLines(csvFmt, processor, dataRows)
+			}
+		} else {
+			printLines(csvFmt, processor, dataRows)
 		}
 	}
 }
 
-func applyRowSum(csvFmt *CsvFormat, lines [][]string) {
-	for _, words := range lines {
+func printLines(csvFmt *CsvFormat, processor *LineProcessor, dataRows []DataRow) {
+	writer := NewCsvWriter(csvFmt)
+	PrintHeader(processor, writer)
+	writer.WriteAll(dataRows)
+	writer.Close()
+}
+
+func applyRowSum(csvFmt *CsvFormat, processor *LineProcessor) {
+	writer := NewCsvWriter(csvFmt)
+	if csvFmt.HeaderDef != nil {
+		headers := GetHeaders(processor)
+		header := "(" + strings.Join(headers, " + ") + ")" //fixme todo apply headers
+		writer.Write([]string{header})
+	}
+
+	for _, words := range processor.Lines {
 		var rowSum int64
 		for _, word := range words {
 			val, err := strconv.ParseInt(word, 10, 64)
@@ -199,8 +277,9 @@ func applyRowSum(csvFmt *CsvFormat, lines [][]string) {
 				rowSum += val
 			}
 		}
-		printLine([]string{strconv.FormatInt(rowSum, 10)}, csvFmt)
+		writer.Write([]string{strconv.FormatInt(rowSum, 10)})
 	}
+	writer.Close()
 }
 
 func applyColSum(csvFmt *CsvFormat, processor *LineProcessor) {
@@ -216,11 +295,14 @@ func applyColSum(csvFmt *CsvFormat, processor *LineProcessor) {
 			}
 		}
 	}
+	writer := NewCsvWriter(csvFmt)
 	var words = make([]string, cols)
 	for i, val := range row {
 		words[i] = strconv.FormatInt(val, 10)
 	}
-	printLine(words, csvFmt)
+	PrintHeader(processor, writer)
+	writer.Write(words)
+	writer.Close()
 }
 
 func pickWords(words []string, indices []int) []string {
@@ -236,7 +318,6 @@ func applyGroupBy(csvFmt *CsvFormat, processor *LineProcessor, mapRed *MapRed) {
 	//compute the keyIndices
 	groupBy := mapRed.GroupBy
 	keyIndices := common.GetFilterStrIndices(common.ApplyRange(firstRow, groupBy))
-
 	//compute valueIndices
 	var valueIndices []int
 	for i := 0; i < len(firstRow); i++ {
@@ -254,30 +335,282 @@ func applyGroupBy(csvFmt *CsvFormat, processor *LineProcessor, mapRed *MapRed) {
 		values := pickWords(words, valueIndices)
 		groupMap.Put(keys, values)
 	}
-	dataRows := groupMap.PostProcess()
+	dataRows := applyCalcAll(csvFmt, groupMap.PostProcess())
 	if mapRed.SortDef != nil {
+		csvFmt.SortDef = mapRed.SortDef
+	}
+	if csvFmt.SortDef != nil {
 		applySort(dataRows, csvFmt)
 	}
-	if csvFmt.OutputDef != nil && csvFmt.OutputDef.Type == "json" {
-		processJsonOutput(dataRows, csvFmt)
+	headers := applyGroupByHeaders(csvFmt, processor.Header, keyIndices)
+	headers = applyCalcHeaders(csvFmt, headers)
+	if csvFmt.OutputDef != nil {
+		if csvFmt.OutputDef.Type == "json" {
+			processJsonOutput(dataRows, csvFmt, headers, len(keyIndices))
+		} else if csvFmt.OutputDef.Type == "table" {
+			processTableOutput(dataRows, csvFmt, headers)
+		} else {
+			printCsv(csvFmt, headers, dataRows)
+		}
 		return
 	}
+	printCsv(csvFmt, headers, dataRows)
+}
 
-	for _, row := range dataRows {
-		var vals []string
-		for _, word := range row.Cols {
-			vals = append(vals, fmt.Sprintf("%v", word))
+func printCsv(csvFmt *CsvFormat, headers []string, dataRows []DataRow) {
+	writer := NewCsvWriter(csvFmt)
+	if csvFmt.HeaderDef != nil {
+		writer.WriteRaw(headers)
+	}
+	writer.WriteAll(dataRows)
+	writer.Close()
+}
+
+func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
+	colWidths := make(map[int]int)
+	for _, row := range rows {
+		for i, col := range row.Cols {
+			var width int
+			switch col.(type) {
+			case *common.StringSet:
+				for _, val := range col.(*common.StringSet).Values() {
+					if (len(val)) > width {
+						width = len(val)
+					}
+				}
+			default:
+				width = len(common.ToString(col))
+			}
+			existing := colWidths[i]
+			if width > existing {
+				colWidths[i] = width
+			}
 		}
-		printLine(vals, csvFmt)
+	}
+	for i, header := range headers {
+		existing := colWidths[i]
+		if len(header) > existing {
+			colWidths[i] = len(header)
+		}
+	}
+	fmtMap := make(map[int]string)
+	for k, v := range colWidths {
+		fmtMap[k] = "%-" + strconv.Itoa(v+3) + "s "
+	}
+	for i, header := range headers {
+		fmt.Printf(fmtMap[i], header)
+	}
+	fmt.Println("")
+	for _, row := range rows {
+		var extraCols [][]string
+		extraValCount := 0
+		for i, col := range row.Cols {
+			switch col.(type) {
+			case *common.StringSet:
+				vals := col.(*common.StringSet).Values()
+				if len(vals) == 0 {
+					fmt.Printf(fmtMap[i], "")
+				} else if len(vals) == 1 {
+					fmt.Printf(fmtMap[i], common.ToString(vals[0]))
+				} else {
+					fmt.Printf(fmtMap[i], common.ToString(vals[0]))
+
+					extraCols = make([][]string, len(row.Cols))
+					extraColVals := make([]string, len(vals)-1)
+					for i := 1; i < len(vals); i++ {
+						extraColVals[i-1] = vals[i]
+					}
+					extraCols[i] = extraColVals
+					if extraValCount < len(extraColVals) {
+						extraValCount = len(extraColVals)
+					}
+				}
+			default:
+				fmt.Printf(fmtMap[i], common.ToString(col))
+			}
+		}
+		fmt.Println("")
+		if len(extraCols) > 0 {
+			for i := 0; i < extraValCount; i++ {
+				for j, vals := range extraCols {
+					if len(vals) <= i {
+						fmt.Printf(fmtMap[j], "")
+					} else {
+						fmt.Printf(fmtMap[j], vals[i])
+					}
+				}
+				fmt.Println("")
+			}
+		}
 	}
 }
 
-func processJsonOutput(rows []DataRow, csvFmt *CsvFormat) {
-	fields := csvFmt.OutputDef.Columns
-	levels := len(fields) - len(rows[0].Cols)
-	if levels < 0 {
-		fmt.Printf("Invalid json cols, expected atleast %v\n", len(rows[0].Cols))
-		return
+func applyGroupByHeaders(csvFmt *CsvFormat, headers []string, keyIndices []int) []string {
+	if csvFmt.HeaderDef != nil && csvFmt.HeaderDef.Fields != nil {
+		headers = csvFmt.HeaderDef.Fields
+	}
+
+	var nHeaders []string
+	added := make(map[int]bool)
+	for _, index := range keyIndices {
+		nHeaders = append(nHeaders, headers[index])
+		added[index] = true
+	}
+	for i, h := range headers {
+		if _, exists := added[i]; !exists {
+			nHeaders = append(nHeaders, h)
+		}
+	}
+	return nHeaders
+}
+
+func applyCalcHeaders(csvFmt *CsvFormat, headers []string) []string {
+	calcDefs := csvFmt.CalcDefs
+	if len(calcDefs) == 0 {
+		return headers
+	}
+	//if headers are set by the user, then use that
+	if csvFmt.HeaderDef != nil && csvFmt.HeaderDef.Fields != nil {
+		return headers
+	}
+	var calcHeaders []string
+	for _, calcDef := range calcDefs {
+		indexSet := calcDef.Indices
+		indexVals := indexSet.Values()
+		headExpr := calcDef.ParsedExpr
+		for _, index := range indexVals {
+			headExpr = strings.Replace(headExpr, fmt.Sprintf("col%d", index), headers[index], 1)
+		}
+		calcHeaders = append(calcHeaders, headExpr)
+	}
+	return append(headers, calcHeaders...)
+
+	//indexSet := calcDef.Indices
+	//indexVals := indexSet.Values()
+	//headExpr := calcDef.ParsedExpr
+	//for _, index := range indexVals {
+	//	headExpr = strings.Replace(headExpr, fmt.Sprintf("col%d", index), headers[index], 1)
+	//}
+	//var nHeaders []string
+	//added := false
+	//for i, col := range headers {
+	//	if !indexSet.Contains(i) {
+	//		nHeaders = append(nHeaders, col)
+	//	} else {
+	//		if !added {
+	//			nHeaders = append(nHeaders, headExpr)
+	//			added = true
+	//		}
+	//	}
+	//}
+	//return nHeaders
+}
+
+func applyCalcAll(csvFmt *CsvFormat, rows []DataRow) []DataRow {
+	calcDef := csvFmt.CalcDefs
+	if calcDef == nil {
+		return rows
+	}
+	nRows := make([]DataRow, len(rows))
+	for i, row := range rows {
+		nRows[i] = *applyCalc(csvFmt, &row)
+	}
+	return nRows
+}
+
+func applyCalc(csvFmt *CsvFormat, row *DataRow) *DataRow {
+	calcDefs := csvFmt.CalcDefs
+	if len(calcDefs) == 0 {
+		return row
+	}
+	var calcValues []interface{}
+	for _, calcDef := range calcDefs {
+		params := govaluate.MapParameters{}
+		indexSet := calcDef.Indices
+		for i, col := range row.Cols {
+			if indexSet.Contains(i) {
+				key := fmt.Sprintf("col%d", i)
+				//todo if any args are string, then dont convert into number
+				params[key] = ConvertIfNeeded(col)
+				//fmt.Printf("%T:%v\n", params[key], params[key])
+			}
+		}
+
+		eval, err := calcDef.EvalExpr.Eval(params)
+		if err != nil {
+			eval = err.Error()
+		}
+		switch eval.(type) {
+		case float64:
+			if !hasFloatArgs(params) {
+
+			}
+		}
+		//fmt.Printf("EVAL: %T:%v\n", eval, eval)
+		calcValues = append(calcValues, eval)
+	}
+	row.Cols = append(row.Cols, calcValues...)
+	return row
+
+	//indices := calcDef.Indices
+	//var nCols []interface{}
+	//added := false
+	//for i, col := range row.Cols {
+	//	if !indices.Contains(i) {
+	//		nCols = append(nCols, col)
+	//	} else {
+	//		if !added {
+	//			nCols = append(nCols, eval)
+	//			added = true
+	//		}
+	//	}
+	//}
+	//return &DataRow{
+	//	Cols:  nCols,
+	//	Count: row.Count,
+	//}
+}
+
+func hasFloatArgs(params govaluate.MapParameters) bool {
+	for _, value := range params {
+		switch value.(type) {
+		case float64:
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+//func handleJsonOutput(csvFmt *CsvFormat, processor *LineProcessor) {
+//	rows := make([]map[string]string, 0)
+//	for _, line := range processor.Lines {
+//		row := make(map[string]string)
+//		for i, header := range processor.Header {
+//			row[header] = line[i]
+//		}
+//		rows = append(rows, row)
+//	}
+//	buf, err := json.Marshal(rows)
+//	if err != nil {
+//		fmt.Println(err)
+//	}
+//	fmt.Printf("%s\n", buf)
+//}
+
+func processJsonOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, groupByCount int) {
+	output := csvFmt.OutputDef
+	fields := output.Fields
+	levels := output.Levels
+	if len(fields) == 0 {
+		fields = calculateOutputFields(headers, levels, groupByCount)
+	} else {
+		levels = len(fields) - len(rows[0].Cols) //recalculate the levels
+		if levels < 0 {
+			fmt.Printf("Invalid JSON Fields, expected atleast %v\n", len(rows[0].Cols))
+			return
+		}
 	}
 	if levels == 0 {
 		array := make([]map[string]interface{}, 0)
@@ -297,6 +630,30 @@ func processJsonOutput(rows []DataRow, csvFmt *CsvFormat) {
 		//unwrap Json
 		printJson(unwrapJsonMap(0, levels, outMap))
 	}
+}
+
+func calculateOutputFields(headers []string, levels int, keyCount int) []string {
+	if levels == 0 {
+		return headers
+	}
+	if levels > keyCount {
+		fmt.Printf("ERROR: The level value of %d is invalid. Max allowed is %d\n", levels, keyCount)
+		levels = keyCount
+	}
+	var nHeaders []string
+	levelIdx := levels
+	for i, header := range headers {
+		nHeaders = append(nHeaders, header)
+		if levelIdx > 0 {
+			if levelIdx == 1 {
+				nHeaders = append(nHeaders, header+"-group")
+			} else {
+				nHeaders = append(nHeaders, headers[i+1]+"s")
+			}
+		}
+		levelIdx--
+	}
+	return nHeaders
 }
 
 func printJson(array []map[string]interface{}) {
@@ -364,11 +721,53 @@ func processJsonLevel(row *DataRow, level int, fields []string, dataMap map[stri
 	}
 }
 
+func toDataRows(processor *LineProcessor) []DataRow {
+	var dataRows []DataRow
+	for _, line := range processor.Lines {
+		var nWords []interface{}
+		for _, word := range line {
+			nWords = append(nWords, word)
+		}
+		dataRows = append(dataRows, DataRow{Cols: nWords})
+	}
+	return dataRows
+}
+
+func convertAndApplySort(csvFmt *CsvFormat, rows []DataRow) []DataRow {
+	firstRow := rows[0]
+	sortDef := csvFmt.SortDef
+	sortCols := sortDef.SortCols
+	sortIndices := common.GetFilterItemIndices(common.IApplyRange(firstRow.Cols, sortCols))
+	var dataRows []DataRow
+	indexMap := make(map[int]bool)
+	for _, index := range sortIndices {
+		indexMap[index] = true
+	}
+	for _, row := range rows {
+		var nWords []interface{}
+		for i, word := range row.Cols {
+			if _, exists := indexMap[i]; exists {
+				nWords = append(nWords, ConvertIfNeeded(word))
+			} else {
+				nWords = append(nWords, word)
+			}
+		}
+		dataRows = append(dataRows, DataRow{Cols: nWords})
+	}
+	rowSort := &DataRowSort{
+		Rows:    dataRows,
+		Indices: sortIndices,
+		Desc:    sortDef.Desc,
+	}
+	sort.Sort(rowSort)
+	return dataRows
+}
+
 func applySort(rows []DataRow, csvFmt *CsvFormat) {
 	if len(rows) == 0 {
 		return
 	}
-	sortDef := csvFmt.MapRed.SortDef
+	sortDef := csvFmt.SortDef
 	sortCols := sortDef.SortCols
 	sortIndices := common.GetFilterItemIndices(common.IApplyRange(rows[0].Cols, sortCols))
 	rowSort := &DataRowSort{
@@ -379,19 +778,15 @@ func applySort(rows []DataRow, csvFmt *CsvFormat) {
 	sort.Sort(rowSort)
 }
 
-func printLine(words []string, csvFmt *CsvFormat) {
-	line := strings.Join(words, csvFmt.Merge)
-	if csvFmt.Wrap != "" {
-		line = csvFmt.Wrap + line + csvFmt.Wrap
-	}
-	fmt.Printf("%s\n", line)
-}
-
-func hasReducer(csvFmt CsvFormat) bool {
-	if csvFmt.IsLMerge || csvFmt.MapRed != nil {
+func hasWholeOpr(csvFmt *CsvFormat) bool {
+	if csvFmt.IsLMerge || csvFmt.MapRed != nil || HasNonCsvOutputFmt(csvFmt) || csvFmt.SortDef != nil {
 		return true
 	}
 	return false
+}
+
+func HasNonCsvOutputFmt(csvFmt *CsvFormat) bool {
+	return csvFmt.OutputDef != nil && csvFmt.OutputDef.Type != "csv"
 }
 
 func hasMrReducer(mapRed *MapRed) bool {
@@ -400,6 +795,9 @@ func hasMrReducer(mapRed *MapRed) bool {
 
 func parseInlineCommand(cmd string, cmdline string) []string {
 	chars := []rune(cmdline)
+	if len(cmd) == len(cmdline) {
+		return []string{cmdline}
+	}
 	r := chars[len(cmd)]
 	var sep []rune
 	sep = append(sep, r)
@@ -412,18 +810,54 @@ func parseInlineCommand(cmd string, cmdline string) []string {
 	return strings.Split(cmdline, string(sep))
 }
 
+func extractHeaderDef(arg string) *HeaderDef {
+	parts := common.ParseSubCommandArg(arg)
+	def := &HeaderDef{}
+	def.Fields = common.ParseIndexStr(parts[0])
+	return def
+}
+
+func extractCalcDef(arg string, csvFmt *CsvFormat) {
+	def := CalcDef{}
+	rawExpr := common.ParseExprStr(arg)
+	modifiedExpr := rawExpr
+	var indices common.IntSet
+	for i := 0; i < 100; i++ {
+		idxVar := fmt.Sprintf("[%d]", i)
+		if strings.Index(rawExpr, idxVar) != -1 {
+			indices.Add(i)
+			modifiedExpr = strings.Replace(modifiedExpr, idxVar,
+				fmt.Sprintf("col%d", i), 1)
+		}
+	}
+	def.RawExpr = rawExpr
+	def.ParsedExpr = modifiedExpr
+	def.Indices = &indices
+	expr, err := govaluate.NewEvaluableExpression(def.ParsedExpr)
+	if err != nil {
+		fmt.Printf("ERR: Expr eval failed %v", err)
+		return
+	}
+	def.EvalExpr = expr
+	csvFmt.CalcDefs = append(csvFmt.CalcDefs, def)
+}
+
 func processOutputArgs(command string, c *CsvFormat) {
 	parts := parseInlineCommand("out", command)
-	if parts[1] == "json" {
-		def := OutputDef{}
-		def.Type = "json"
-		for _, arg := range parts[2:] {
-			if strings.Index(arg, "cols:") == 0 {
-				def.Columns = strings.Split(arg, ":")[1:]
+	def := OutputDef{}
+	def.Type = parts[1]
+	for _, arg := range parts[2:] {
+		if strings.Index(arg, "fields[") == 0 {
+			fields := common.ParseSubCommandArg(arg)
+			def.Fields = common.ParseIndexStr(fields[0])
+		} else if strings.Index(arg, "levels:") != -1 {
+			levels, err := strconv.Atoi(extractArg(arg, "levels:"))
+			if err == nil {
+				def.Levels = levels
 			}
 		}
-		c.OutputDef = &def
 	}
+	c.OutputDef = &def
 }
 
 func processMrArguments(command string, csvFmt *CsvFormat) {
@@ -437,24 +871,29 @@ func processMrArguments(command string, csvFmt *CsvFormat) {
 			} else {
 				mapRed.Sum = split[1]
 			}
-		} else if strings.Index(part, "group:") != -1 {
-			split := strings.Split(part, ":")[1:]
+		} else if strings.Index(part, "group[") != -1 {
+			split := common.ParseSubCommandArg(part)
 			mapRed.GroupBy = extractCsvIndexArg(split[0])
-		} else if strings.Index(part, "sort:") != -1 {
-			split := strings.Split(part, ":")[1:]
-			sort := &SortDef{}
-			sort.SortCols = extractCsvIndexArg(split[0])
-			if len(split) > 1 {
-				if split[1] == "desc" {
-					sort.Desc = true
-				} else {
-					sort.Desc = false
-				}
-			}
-			mapRed.SortDef = sort
+		} else if strings.Index(part, "sort[") != -1 {
+			sortDef := extractSort(part)
+			mapRed.SortDef = sortDef
 		}
 	}
 	csvFmt.MapRed = &mapRed
+}
+
+func extractSort(part string) *SortDef {
+	split := common.ParseSubCommandArg(part)
+	sortDef := &SortDef{}
+	sortDef.SortCols = extractCsvIndexArg(split[0])
+	if len(split) > 1 {
+		if split[1] == "desc" {
+			sortDef.Desc = true
+		} else {
+			sortDef.Desc = false
+		}
+	}
+	return sortDef
 }
 
 func processFmtArguments(command string, csvFmt *CsvFormat) {
@@ -466,7 +905,7 @@ func processFmtArguments(command string, csvFmt *CsvFormat) {
 	format := ColumnFormat{}
 	for _, part := range parts[2:] {
 		if strings.Index(part, "split:") == 0 {
-			format.Delim = extractDelim(part, "split:")
+			format.Split = extractDelim(part, "split:")
 		} else if strings.Index(part, "merge:") == 0 {
 			format.Merge = extractDelim(part, "merge:")
 		} else if strings.Index(part, "wrap:") == 0 {
@@ -482,7 +921,17 @@ func processFmtArguments(command string, csvFmt *CsvFormat) {
 			format.ColExt.Exclude = true
 		}
 	}
-	csvFmt.ColFmtMap[colIndex] = format
+	fmtMap := csvFmt.ColFmtMap
+	if fmtMap == nil {
+		fmtMap = make(map[int][]ColumnFormat)
+		csvFmt.ColFmtMap = fmtMap
+	}
+	existing, exists := fmtMap[colIndex]
+	if !exists {
+		fmtMap[colIndex] = []ColumnFormat{format}
+	} else {
+		fmtMap[colIndex] = append(existing, format)
+	}
 }
 
 func extractArg(arg string, prefix string) string {
@@ -521,7 +970,7 @@ func extractDelim(arg string, prefix string) string {
 	return delim
 }
 
-func extractCsv(words []string, ext *common.IntRange, fmtMap map[int]ColumnFormat) []string {
+func extractCsv(words []string, ext *common.IntRange, fmtMap map[int][]ColumnFormat) []string {
 	ftrWords := common.ApplyRange(words, ext)
 	var vals []string
 	for _, ftrWord := range *ftrWords {
@@ -531,31 +980,36 @@ func extractCsv(words []string, ext *common.IntRange, fmtMap map[int]ColumnForma
 	return vals
 }
 
-func processWord(ftrWord common.FilterStr, fmtMap map[int]ColumnFormat) string {
+func processWord(ftrWord common.FilterStr, fmtMap map[int][]ColumnFormat) string {
+	if fmtMap == nil {
+		return ftrWord.Str
+	}
+	colFormats, exists := fmtMap[ftrWord.Index]
+	if !exists || len(colFormats) <= 0 {
+		return ftrWord.Str
+	}
 	word := ftrWord.Str
-	colFormat, ok := fmtMap[ftrWord.Index]
-	if !ok {
-		return word
-	}
-	if colFormat.Delim != "" {
-		parts := strings.Split(word, colFormat.Delim)
-		if colFormat.ColExt != nil {
-			parts = extractCsv(parts, colFormat.ColExt, map[int]ColumnFormat{})
+	for _, colFormat := range colFormats {
+		if colFormat.Split != "" {
+			parts := strings.Split(word, colFormat.Split)
+			if colFormat.ColExt != nil {
+				parts = extractCsv(parts, colFormat.ColExt, nil)
+			}
+			merge := ","
+			if colFormat.Merge != "" {
+				merge = colFormat.Merge
+			}
+			word = strings.Join(parts, merge)
 		}
-		merge := ","
-		if colFormat.Merge != "" {
-			merge = colFormat.Merge
+		if colFormat.Prefix != "" {
+			word = colFormat.Prefix + word
 		}
-		word = strings.Join(parts, merge)
-	}
-	if colFormat.Prefix != "" {
-		word = colFormat.Prefix + word
-	}
-	if colFormat.Suffix != "" {
-		word = word + colFormat.Suffix
-	}
-	if colFormat.Wrap != "" {
-		word = colFormat.Wrap + word + colFormat.Wrap
+		if colFormat.Suffix != "" {
+			word = word + colFormat.Suffix
+		}
+		if colFormat.Wrap != "" {
+			word = colFormat.Wrap + word + colFormat.Wrap
+		}
 	}
 	return word
 }

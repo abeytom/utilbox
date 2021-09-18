@@ -5,22 +5,22 @@ import (
 )
 
 func TestIndices(t *testing.T) {
-	assertIntArray(t, ParseRange("10").Indices, []int{10})
-	assertIntArray(t, ParseRange("-10").Indices, []int{-10})
+	AssertIntArray(t, ParseRange("10").Indices, []int{10})
+	AssertIntArray(t, ParseRange("-10").Indices, []int{-10})
 
-	assertIntArray(t, ParseRange("10,20").Indices, []int{10, 20})
-	assertIntArray(t, ParseRange("10,-20").Indices, []int{10, -20})
-	assertIntArray(t, ParseRange("-10,-20").Indices, []int{-10, -20})
+	AssertIntArray(t, ParseRange("10,20").Indices, []int{10, 20})
+	AssertIntArray(t, ParseRange("10,-20").Indices, []int{10, -20})
+	AssertIntArray(t, ParseRange("-10,-20").Indices, []int{-10, -20})
 
-	assertIntArray(t, CalcBounds("10-12"), []int{10, 12})
-	assertIntArray(t, CalcBounds("-10-12"), []int{-10, 12})
-	assertIntArray(t, CalcBounds("-10--12"), []int{-10, -12})
-	assertIntArray(t, CalcBounds("10--12"), []int{10, -12})
+	AssertIntArray(t, CalcBounds("10-12"), []int{10, 12})
+	AssertIntArray(t, CalcBounds("-10-12"), []int{-10, 12})
+	AssertIntArray(t, CalcBounds("-10--12"), []int{-10, -12})
+	AssertIntArray(t, CalcBounds("10--12"), []int{10, -12})
 
-	assertIntArray(t, ParseRange("10-12").Indices, []int{10, 11})
-	assertIntArray(t, ParseRange("-10-1").Indices, []int{-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0})
-	assertIntArray(t, ParseRange("-10--12").Indices, []int{}) //invalid bounds
-	assertIntArray(t, ParseRange("-12--10").Indices, []int{-12, -11})
+	AssertIntArray(t, ParseRange("10-12").Indices, []int{10, 11})
+	AssertIntArray(t, ParseRange("-10-1").Indices, []int{-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0})
+	AssertIntArray(t, ParseRange("-10--12").Indices, []int{}) //invalid bounds
+	AssertIntArray(t, ParseRange("-12--10").Indices, []int{-12, -11})
 }
 
 func TestStartEnd(t *testing.T) {
@@ -40,10 +40,10 @@ func assertRangeEquals(t *testing.T, r *IntRange, start *int, end *int, indices 
 	if end != r.End && *end != *r.End {
 		t.Fatalf("End Mismatch Actual=%+v, Expected: %+v", start, *r.End)
 	}
-	assertIntArray(t, r.Indices, indices)
+	AssertIntArray(t, r.Indices, indices)
 }
 
-func assertIntArray(t *testing.T, actual []int, expected []int) {
+func AssertIntArray(t *testing.T, actual []int, expected []int) {
 	if len(actual) != len(expected) {
 		t.Fatalf("Array Mismatch Actual=%+v, Expected: %+v", actual, expected)
 	}
