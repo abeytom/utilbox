@@ -10,26 +10,30 @@ Note: The wildcard(*) expressions might need to enclosed in single quotes to avo
 
 ### Current Dir
 ```
-curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-amd64.tar.gz | tar -xvz && export PATH=$PATH:$(pwd)/utilbox
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-amd64.tar.gz \
+ | tar -xvz && export PATH=$PATH:$(pwd)/utilbox
 ```
-### Home
+### Home Dir
 ```
-curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-amd64.tar.gz | tar -xvz -C $HOME && export PATH=$PATH:$HOME/utilbox
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-amd64.tar.gz \
+ | tar -xvz -C $HOME && export PATH=$PATH:$HOME/utilbox
 ```
 
 ## OSX
 
 ### Current Dir
 ```
-curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.tar.gz | tar -xvz && export PATH=$PATH:$(pwd)/utilbox
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.tar.gz \
+ | tar -xvz && export PATH=$PATH:$(pwd)/utilbox
 ```
-### Home
+### Home Dir
 ```
-curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.tar.gz | tar -xvz -C $HOME && export PATH=$PATH:$HOME/utilbox
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.tar.gz \
+ | tar -xvz -C $HOME && export PATH=$PATH:$HOME/utilbox
 ```
 
 
-# Setup
+# Dev Setup
 - Clone this repo to say `~/github/abeytom/utilbox`
 - Add `~/github/abeytom/utilbox` to the $PATH
 - Build `cd go && make`
