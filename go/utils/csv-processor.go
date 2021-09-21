@@ -222,14 +222,22 @@ func (groupMap *GroupMap) Flatten() []DataRow {
 	keyCount := len(groupMap.KeyIndices)
 	valueCount := len(groupMap.ValueIndices)
 	var array []DataRow
+	showCount := groupMap.CsvFormat.MapRed.ShowCount
 	for k, v := range groupMap.Map {
 		keys := strings.Split(k, ":==:")
-		cols := make([]interface{}, keyCount+valueCount)
+		colCount := keyCount + valueCount
+		if showCount {
+			colCount++
+		}
+		cols := make([]interface{}, colCount)
 		for i, key := range keys {
 			cols[i] = key
 		}
 		for i, val := range v.Values {
 			cols[i+keyCount] = val
+		}
+		if showCount {
+			cols[colCount-1] = int64(v.Count)
 		}
 		array = append(array, DataRow{
 			Cols:  cols,

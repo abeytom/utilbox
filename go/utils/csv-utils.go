@@ -37,7 +37,7 @@ type CsvFormat struct {
 	LMerge       string
 	Wrap         string
 	HasWholeOpr  bool
-	MapRed       *MapRed
+	MapRed       *GroupByDef
 	HasMrReducer bool
 	OutputDef    *OutputDef
 	SortDef      *SortDef
@@ -45,10 +45,11 @@ type CsvFormat struct {
 	CalcDefs     []CalcDef
 }
 
-type MapRed struct {
-	Sum     string
-	GroupBy *common.IntRange
-	SortDef *SortDef
+type GroupByDef struct {
+	Sum        string //deprecated
+	ColIndices *common.IntRange
+	ShowCount  bool
+	//SortDef *SortDef
 }
 
 type SortDef struct {
@@ -148,8 +149,8 @@ func HandleCsv(args []string) {
 			csvFmt.Wrap = extractDelim(arg, "wrap:")
 		} else if strings.HasPrefix(arg, "fmt") {
 			processFmtArguments(arg, csvFmt)
-		} else if strings.HasPrefix(arg, "mr") {
-			processMrArguments(arg, csvFmt)
+		} else if strings.HasPrefix(arg, "group[") {
+			processGroupArgs(arg, csvFmt)
 		} else if strings.HasPrefix(arg, "out") {
 			processOutputArgs(arg, csvFmt)
 		} else if strings.HasPrefix(arg, "head") {
@@ -157,6 +158,9 @@ func HandleCsv(args []string) {
 		} else if strings.HasPrefix(arg, "calc") {
 			extractCalcDef(arg, csvFmt)
 		}
+		//else if strings.HasPrefix(arg, "mr") {
+		//	processMrArguments(arg, csvFmt)
+		//}
 	}
 	csvFmt.HasWholeOpr = hasWholeOpr(csvFmt)
 	csvFmt.HasMrReducer = hasMrReducer(csvFmt.MapRed)
@@ -203,7 +207,7 @@ func processLines(csvFmt *CsvFormat, processor *LineProcessor) {
 		return
 	}
 	if csvFmt.MapRed != nil {
-		if csvFmt.MapRed.GroupBy != nil {
+		if csvFmt.MapRed.ColIndices != nil {
 			applyGroupBy(csvFmt, processor, csvFmt.MapRed)
 		} else if csvFmt.MapRed.Sum == "row" {
 			applyRowSum(csvFmt, processor)
@@ -313,10 +317,10 @@ func pickWords(words []string, indices []int) []string {
 	return vals
 }
 
-func applyGroupBy(csvFmt *CsvFormat, processor *LineProcessor, mapRed *MapRed) {
+func applyGroupBy(csvFmt *CsvFormat, processor *LineProcessor, mapRed *GroupByDef) {
 	firstRow := processor.Lines[0]
 	//compute the keyIndices
-	groupBy := mapRed.GroupBy
+	groupBy := mapRed.ColIndices
 	keyIndices := common.GetFilterStrIndices(common.ApplyRange(firstRow, groupBy))
 	//compute valueIndices
 	var valueIndices []int
@@ -336,9 +340,6 @@ func applyGroupBy(csvFmt *CsvFormat, processor *LineProcessor, mapRed *MapRed) {
 		groupMap.Put(keys, values)
 	}
 	dataRows := applyCalcAll(csvFmt, groupMap.PostProcess())
-	if mapRed.SortDef != nil {
-		csvFmt.SortDef = mapRed.SortDef
-	}
 	if csvFmt.SortDef != nil {
 		applySort(dataRows, csvFmt)
 	}
@@ -447,7 +448,7 @@ func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 
 func applyGroupByHeaders(csvFmt *CsvFormat, headers []string, keyIndices []int) []string {
 	if csvFmt.HeaderDef != nil && csvFmt.HeaderDef.Fields != nil {
-		headers = csvFmt.HeaderDef.Fields
+		return csvFmt.HeaderDef.Fields
 	}
 
 	var nHeaders []string
@@ -460,6 +461,9 @@ func applyGroupByHeaders(csvFmt *CsvFormat, headers []string, keyIndices []int) 
 		if _, exists := added[i]; !exists {
 			nHeaders = append(nHeaders, h)
 		}
+	}
+	if csvFmt.MapRed.ShowCount {
+		nHeaders = append(nHeaders, "count")
 	}
 	return nHeaders
 }
@@ -789,8 +793,8 @@ func HasNonCsvOutputFmt(csvFmt *CsvFormat) bool {
 	return csvFmt.OutputDef != nil && csvFmt.OutputDef.Type != "csv"
 }
 
-func hasMrReducer(mapRed *MapRed) bool {
-	return mapRed != nil && mapRed.SortDef != nil
+func hasMrReducer(mapRed *GroupByDef) bool {
+	return mapRed != nil
 }
 
 func parseInlineCommand(cmd string, cmdline string) []string {
@@ -860,27 +864,40 @@ func processOutputArgs(command string, c *CsvFormat) {
 	c.OutputDef = &def
 }
 
-func processMrArguments(command string, csvFmt *CsvFormat) {
-	mapRed := MapRed{}
-	parts := parseInlineCommand("mr", command)[1:]
-	for _, part := range parts {
-		if strings.Index(part, "sum") != -1 {
-			split := strings.Split(part, ":")
-			if len(split) == 1 {
-				mapRed.Sum = "col"
-			} else {
-				mapRed.Sum = split[1]
-			}
-		} else if strings.Index(part, "group[") != -1 {
-			split := common.ParseSubCommandArg(part)
-			mapRed.GroupBy = extractCsvIndexArg(split[0])
-		} else if strings.Index(part, "sort[") != -1 {
-			sortDef := extractSort(part)
-			mapRed.SortDef = sortDef
+func processGroupArgs(command string, csvFmt *CsvFormat) {
+	args := common.ParseSubCommandArg(command)
+	mapRed := GroupByDef{}
+	for _, part := range args {
+		if strings.Index(part, "group[") != -1 {
+			mapRed.ColIndices = extractCsvIndexArg(part)
+		} else if strings.Index(part, "count") != -1 {
+			mapRed.ShowCount = true
 		}
 	}
 	csvFmt.MapRed = &mapRed
 }
+
+//func processMrArguments(command string, csvFmt *CsvFormat) {
+//	mapRed := GroupByDef{}
+//	parts := parseInlineCommand("mr", command)[1:]
+//	for _, part := range parts {
+//		if strings.Index(part, "sum") != -1 {
+//			split := strings.Split(part, ":")
+//			if len(split) == 1 {
+//				mapRed.Sum = "col"
+//			} else {
+//				mapRed.Sum = split[1]
+//			}
+//		} else if strings.Index(part, "group[") != -1 {
+//			split := common.ParseSubCommandArg(part)
+//			mapRed.ColIndices = extractCsvIndexArg(split[0])
+//		} else if strings.Index(part, "sort[") != -1 {
+//			sortDef := extractSort(part)
+//			mapRed.SortDef = sortDef
+//		}
+//	}
+//	csvFmt.GroupByDef = &mapRed
+//}
 
 func extractSort(part string) *SortDef {
 	split := common.ParseSubCommandArg(part)
