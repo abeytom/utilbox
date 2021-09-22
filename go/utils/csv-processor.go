@@ -263,22 +263,55 @@ func (s *DataRowSort) Swap(i, j int) {
 func (s *DataRowSort) Less(i, j int) bool {
 	one := s.Rows[i].Cols
 	two := s.Rows[j].Cols
-	index := s.Indices[0] //todo multi sort cols
-	compare := s.Compare(one[index], two[index])
-	if s.Desc {
-		return !compare
+	for _, index := range s.Indices {
+		compare := s.Compare(one[index], two[index])
+		if compare == 0 {
+			continue
+		}
+		if compare < 0 {
+			return !s.Desc
+		}
+		return s.Desc
 	}
-	return compare
+	return true
 }
 
-func (s *DataRowSort) Compare(one interface{}, two interface{}) bool {
+func (s *DataRowSort) Compare(one interface{}, two interface{}) int {
 	switch one.(type) {
+	case int:
+		if one.(int) == two.(int) {
+			return 0
+		} else if one.(int) < two.(int) {
+			return -1
+		} else {
+			return 1
+		}
 	case int64:
-		return one.(int64) < two.(int64)
+		if one.(int64) == two.(int64) {
+			return 0
+		} else if one.(int64) < two.(int64) {
+			return -1
+		} else {
+			return 1
+		}
 	case float64:
-		return one.(float64) < two.(float64)
+		if one.(float64) == two.(float64) {
+			return 0
+		} else if one.(float64) < two.(float64) {
+			return -1
+		} else {
+			return 1
+		}
 	default:
-		return fmt.Sprintf("%v", one) < fmt.Sprintf("%v", two)
+		str1 := fmt.Sprintf("%v", one)
+		str2 := fmt.Sprintf("%v", two)
+		if str1 == str2 {
+			return 0
+		} else if str1 < str2 {
+			return -1
+		} else {
+			return 1
+		}
 	}
 }
 
