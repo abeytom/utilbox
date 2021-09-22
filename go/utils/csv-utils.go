@@ -58,8 +58,8 @@ type SortDef struct {
 }
 
 type OutputDef struct {
-	Type   string
-	Fields []string
+	Type string
+	//Fields []string
 	Levels int
 }
 
@@ -605,14 +605,17 @@ func hasFloatArgs(params govaluate.MapParameters) bool {
 
 func processJsonOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, groupByCount int) {
 	output := csvFmt.OutputDef
-	fields := output.Fields
+	var fields []string
+	if csvFmt.HeaderDef != nil {
+		fields = csvFmt.HeaderDef.Fields
+	}
 	levels := output.Levels
 	if len(fields) == 0 {
 		fields = calculateOutputFields(headers, levels, groupByCount)
 	} else {
 		levels = len(fields) - len(rows[0].Cols) //recalculate the levels
 		if levels < 0 {
-			fmt.Printf("Invalid JSON Fields, expected atleast %v\n", len(rows[0].Cols))
+			fmt.Fprintf(os.Stderr, "Invalid JSON Fields, expected atleast %v\n", len(rows[0].Cols))
 			return
 		}
 	}
@@ -641,7 +644,7 @@ func calculateOutputFields(headers []string, levels int, keyCount int) []string 
 		return headers
 	}
 	if levels > keyCount {
-		fmt.Printf("ERROR: The level value of %d is invalid. Max allowed is %d\n", levels, keyCount)
+		fmt.Fprintf(os.Stderr, "ERROR: The level value of %d is invalid. Max allowed is %d\n", levels, keyCount)
 		levels = keyCount
 	}
 	var nHeaders []string
@@ -839,7 +842,7 @@ func extractCalcDef(arg string, csvFmt *CsvFormat) {
 	def.Indices = &indices
 	expr, err := govaluate.NewEvaluableExpression(def.ParsedExpr)
 	if err != nil {
-		fmt.Printf("ERR: Expr eval failed %v", err)
+		fmt.Fprintf(os.Stderr, "ERR: Expr eval failed %v", err)
 		return
 	}
 	def.EvalExpr = expr
@@ -851,10 +854,11 @@ func processOutputArgs(command string, c *CsvFormat) {
 	def := OutputDef{}
 	def.Type = parts[1]
 	for _, arg := range parts[2:] {
-		if strings.Index(arg, "fields[") == 0 {
-			fields := common.ParseSubCommandArg(arg)
-			def.Fields = common.ParseIndexStr(fields[0])
-		} else if strings.Index(arg, "levels:") != -1 {
+		//if strings.Index(arg, "fields[") == 0 {
+		//	fields := common.ParseSubCommandArg(arg)
+		//	def.Fields = common.ParseIndexStr(fields[0])
+		//} else
+		if strings.Index(arg, "levels:") != -1 {
 			levels, err := strconv.Atoi(extractArg(arg, "levels:"))
 			if err == nil {
 				def.Levels = levels

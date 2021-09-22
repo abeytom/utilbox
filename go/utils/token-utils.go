@@ -8,14 +8,7 @@ import (
 )
 
 func BearerToken(args []string) {
-	baseDir := os.Getenv("UTILBOX_PATH")
-	if baseDir == "" {
-		user, err := user.Current()
-		if err != nil {
-			panic(err)
-		}
-		baseDir = filepath.Join(user.HomeDir, ".utilbox")
-	}
+	baseDir := getBaseDir()
 	cmd := args[1]
 	conf := getConf(baseDir)
 	if cmd == "add" {
@@ -40,5 +33,28 @@ func BearerToken(args []string) {
 		} else {
 			fmt.Printf("ERR:INVALID_TOKEN [%s]", key)
 		}
+	}
+}
+
+func getBaseDir() string {
+	baseDir := os.Getenv("UTILBOX_PATH")
+	if baseDir == "" {
+		user, err := user.Current()
+		if err != nil {
+			panic(err)
+		}
+		baseDir = filepath.Join(user.HomeDir, ".utilbox")
+	}
+	return baseDir
+}
+
+func GetKeyValue(key string) (string, error) {
+	baseDir := getBaseDir()
+	conf := getConf(baseDir)
+	tokens := conf.Tokens
+	if token, ok := tokens[key]; ok {
+		return token, nil
+	} else {
+		return "", fmt.Errorf("ERR:INVALID_TOKEN [%s]", key)
 	}
 }

@@ -189,6 +189,14 @@ type StringSet struct {
 	values map[string]struct{}
 }
 
+func NewStringSet(vals []string) *StringSet {
+	values := make(map[string]struct{})
+	for _, val := range vals {
+		values[val] = void
+	}
+	return &StringSet{values: values}
+}
+
 func (s *StringSet) Add(str string) {
 	if s.values == nil {
 		s.values = make(map[string]struct{})

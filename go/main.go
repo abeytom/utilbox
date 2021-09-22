@@ -22,6 +22,8 @@ func main() {
 		utils.JsonLog2Txt()
 	} else if args[1] == "tok" {
 		utils.BearerToken(args[1:])
+	} else if args[1] == "curl" {
+		utils.Curl(args[2:])
 	} else {
 		fmt.Printf("Unknown command %s\n", args)
 	}
