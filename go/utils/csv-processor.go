@@ -109,7 +109,9 @@ func Merge(oVal interface{}, nVal string) interface{} {
 		}
 		return oVal
 	case *common.StringSet:
-		oVal.(*common.StringSet).Add(nVal)
+		if nVal != "" {
+			oVal.(*common.StringSet).Add(nVal)
+		}
 		return oVal
 	default:
 		//fixme this is an error; hanlde
@@ -145,7 +147,9 @@ func ConvertForMapping(val string) interface{} {
 		return float64Val
 	}
 	set := &common.StringSet{}
-	set.Add(val)
+	if val != "" {
+		set.Add(val)
+	}
 	return set
 }
 

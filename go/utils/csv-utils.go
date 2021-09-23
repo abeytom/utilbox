@@ -43,6 +43,7 @@ type CsvFormat struct {
 	SortDef      *SortDef
 	HeaderDef    *HeaderDef
 	CalcDefs     []CalcDef
+	KeyDef       *HeaderDef
 }
 
 type GroupByDef struct {
@@ -89,16 +90,6 @@ func HandleCsv(args []string) {
 	// kc get pods | csv space merge ->
 	//fmt.Printf("The args are %s\n", args)
 
-	filePath := args[0]
-	csvFmt := &CsvFormat{
-		ColExt:   &common.IntRange{},
-		RowExt:   &common.IntRange{},
-		Split:    " ",
-		Merge:    "csv",
-		LMerge:   ",",
-		Wrap:     "",
-		IsLMerge: false,
-	}
 	//kc get svc | csv row[1:] col[0-3,5] fmt#c4#split:/#merge:-#col[0,1] fmt#c2#split:.#merge:: merge:'|' lmerge:===
 	//kc get svc | csv row[1:] col[0,4] merge:: fmt.c0.pfx:'curl http://'  fmt.c4.split:/.col[0].sfx:'/actuator/health' wrap:dquote
 	// kc get pods | csv row[1:] col[0] fmt#c0#split:-#:-#ncol[-1,-2]
@@ -125,6 +116,43 @@ func HandleCsv(args []string) {
 		cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr..group[0]..sort[2]:desc out..json
 		cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr..group[0]..sort[2]:desc out..json..levels:1
 	*/
+
+	filePath := args[0]
+	csvFmt := parseCsvArgs(args)
+
+	//fmt.Printf("[%+v] \n", csvFmt)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		panic("Cannot read the file " + filePath)
+	}
+	defer file.Close()
+
+	if csvFmt.Split == "csv" {
+		processCsv(file, csvFmt)
+	} else {
+		scanner := bufio.NewScanner(file)
+		processor := NewLineProcessor(csvFmt)
+		for scanner.Scan() {
+			processor.processRow(func() []string {
+				return strings.Split(scanner.Text(), csvFmt.Split)
+			})
+		}
+		processLines(csvFmt, processor)
+		processor.Close()
+	}
+}
+
+func parseCsvArgs(args []string) *CsvFormat {
+	csvFmt := &CsvFormat{
+		ColExt:   &common.IntRange{},
+		RowExt:   &common.IntRange{},
+		Split:    " ",
+		Merge:    "csv",
+		LMerge:   ",",
+		Wrap:     "",
+		IsLMerge: false,
+	}
 
 	for _, arg := range args[1:] {
 		if strings.HasPrefix(arg, "lmerge") {
@@ -157,6 +185,10 @@ func HandleCsv(args []string) {
 			csvFmt.HeaderDef = extractHeaderDef(arg)
 		} else if strings.HasPrefix(arg, "calc") {
 			extractCalcDef(arg, csvFmt)
+		} else if strings.HasPrefix(arg, "keys") {
+			def := &HeaderDef{}
+			def.Fields = common.ParseIndexStr(arg)
+			csvFmt.KeyDef = def
 		}
 		//else if strings.HasPrefix(arg, "mr") {
 		//	processMrArguments(arg, csvFmt)
@@ -164,28 +196,7 @@ func HandleCsv(args []string) {
 	}
 	csvFmt.HasWholeOpr = hasWholeOpr(csvFmt)
 	csvFmt.HasMrReducer = hasMrReducer(csvFmt.MapRed)
-
-	//fmt.Printf("[%+v] \n", csvFmt)
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		panic("Cannot read the file " + filePath)
-	}
-	defer file.Close()
-
-	if csvFmt.Split == "csv" {
-		processCsv(file, csvFmt)
-	} else {
-		scanner := bufio.NewScanner(file)
-		processor := NewLineProcessor(csvFmt)
-		for scanner.Scan() {
-			processor.processRow(func() []string {
-				return strings.Split(scanner.Text(), csvFmt.Split)
-			})
-		}
-		processLines(csvFmt, processor)
-		processor.Close()
-	}
+	return csvFmt
 }
 
 func processCsv(file *os.File, csvFmt *CsvFormat) {
@@ -256,6 +267,44 @@ func processLines(csvFmt *CsvFormat, processor *LineProcessor) {
 	}
 }
 
+func processOutput(csvFmt *CsvFormat, dataRows []DataRow, defHeaders []string) {
+	dataRows = applyCalcAll(csvFmt, dataRows)
+	if csvFmt.SortDef != nil {
+		dataRows = convertAndApplySort(csvFmt, dataRows)
+	}
+	headers := getFinalHeaders(csvFmt, defHeaders)
+	def := csvFmt.OutputDef
+	if def == nil {
+		processCsvOutput(dataRows, csvFmt, headers)
+	} else if def.Type == "json" {
+		processJsonOutput(dataRows, csvFmt, headers, 0)
+	} else if def.Type == "table" {
+		processTableOutput(dataRows, csvFmt, headers)
+	} else {
+		processCsvOutput(dataRows, csvFmt, headers)
+	}
+}
+
+func processCsvOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
+	writer := NewCsvWriter(csvFmt)
+	writer.WriteRaw(headers)
+	writer.WriteAll(rows)
+	writer.Close()
+}
+
+func getFinalHeaders(csvFmt *CsvFormat, defHeaders []string) []string {
+	var headers []string
+	if csvFmt.HeaderDef != nil && csvFmt.HeaderDef.Fields != nil {
+		headers = csvFmt.HeaderDef.Fields
+	} else {
+		headers = defHeaders
+	}
+	if headers != nil {
+		return applyCalcHeaders(csvFmt, headers)
+	}
+	return nil
+}
+
 func printLines(csvFmt *CsvFormat, processor *LineProcessor, dataRows []DataRow) {
 	writer := NewCsvWriter(csvFmt)
 	PrintHeader(processor, writer)
@@ -311,8 +360,13 @@ func applyColSum(csvFmt *CsvFormat, processor *LineProcessor) {
 
 func pickWords(words []string, indices []int) []string {
 	var vals []string
+	wlen := len(words)
 	for _, index := range indices {
-		vals = append(vals, words[index])
+		if wlen > index {
+			vals = append(vals, words[index])
+		} else {
+			vals = append(vals, "")
+		}
 	}
 	return vals
 }
@@ -427,7 +481,11 @@ func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 					}
 				}
 			default:
-				fmt.Printf(fmtMap[i], common.ToString(col))
+				if col != nil {
+					fmt.Printf(fmtMap[i], common.ToString(col))
+				} else {
+					fmt.Printf(fmtMap[i], "")
+				}
 			}
 		}
 		fmt.Println("")
@@ -442,6 +500,7 @@ func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 				}
 				fmt.Println("")
 			}
+			//fmt.Println("")
 		}
 	}
 }

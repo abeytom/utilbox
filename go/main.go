@@ -24,6 +24,8 @@ func main() {
 		utils.BearerToken(args[1:])
 	} else if args[1] == "curl" {
 		utils.Curl(args[2:])
+	} else if args[1] == "json_parse" {
+		utils.JsonParse(args[2:])
 	} else {
 		fmt.Printf("Unknown command %s\n", args)
 	}

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+basedir=$(dirname "$0")
+cmdfile="$basedir/.tmp/jsontmp"
+mkdir -p "$basedir/.tmp"
+: > "$cmdfile"
+
+while read -r data; do
+  echo $data >> $cmdfile
+done;
+
+out=$(goexec "json_parse" "$cmdfile" "$@")
+echo "$out"
+
+: > "$cmdfile"
