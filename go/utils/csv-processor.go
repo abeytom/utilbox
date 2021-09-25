@@ -10,11 +10,11 @@ import (
 )
 
 type LineProcessor struct {
-	Header    []string
-	csvFmt    *CsvFormat
-	RowIndex  int
-	Lines     [][]string
-	csvWriter *CsvWriter
+	DataHeaders []string
+	csvFmt      *CsvFormat
+	RowIndex    int
+	Lines       [][]string
+	csvWriter   *CsvWriter
 }
 
 func NewLineProcessor(csvFmt *CsvFormat) *LineProcessor {
@@ -28,22 +28,25 @@ func NewLineProcessor(csvFmt *CsvFormat) *LineProcessor {
 func (p *LineProcessor) processRow(supplier func() []string) {
 	csvFmt := p.csvFmt
 	if isWithInBounds(csvFmt.RowExt, p.RowIndex) {
-		words := extractCsv(supplier(), csvFmt.ColExt, csvFmt.ColFmtMap)
 		if p.RowIndex == 0 {
-			p.Header = words
-			if !csvFmt.HasWholeOpr {
-				PrintHeader(p, p.csvWriter)
+			words := extractCsv(supplier(), csvFmt.ColExt, nil)
+			if csvFmt.HasWholeOpr {
+				p.DataHeaders = words
+			} else {
+				p.csvWriter.WriteRaw(getFinalHeaders(csvFmt, words))
+			}
+		} else {
+			words := extractCsv(supplier(), csvFmt.ColExt, csvFmt.ColFmtMap)
+			if csvFmt.HasWholeOpr {
+				p.Lines = append(p.Lines, words)
+			} else {
+				p.csvWriter.Write(words)
 			}
 		}
-		if csvFmt.HasWholeOpr {
-			p.Lines = append(p.Lines, words)
-		} else {
-			p.csvWriter.Write(words)
-		}
 	} else if p.RowIndex == 0 {
-		p.Header = extractCsv(supplier(), csvFmt.ColExt, csvFmt.ColFmtMap)
+		p.DataHeaders = extractCsv(supplier(), csvFmt.ColExt, nil)
 		if !csvFmt.HasWholeOpr {
-			PrintHeader(p, p.csvWriter)
+			p.csvWriter.WriteRaw(getFinalHeaders(csvFmt, p.DataHeaders))
 		}
 	}
 	p.RowIndex = p.RowIndex + 1
@@ -52,23 +55,6 @@ func (p *LineProcessor) processRow(supplier func() []string) {
 func (p *LineProcessor) Close() {
 	if p.csvWriter != nil {
 		p.csvWriter.Close()
-	}
-}
-
-func GetHeaders(p *LineProcessor) []string {
-	if p.csvFmt.HeaderDef != nil && p.csvFmt.HeaderDef.Fields != nil {
-		return p.csvFmt.HeaderDef.Fields
-	} else {
-		return p.Header
-	}
-}
-
-func PrintHeader(p *LineProcessor, writer *CsvWriter) {
-	if p.csvFmt.HeaderDef != nil {
-		headers := GetHeaders(p)
-		if headers != nil {
-			writer.WriteRaw(applyCalcHeaders(writer.CsvFormat, headers))
-		}
 	}
 }
 

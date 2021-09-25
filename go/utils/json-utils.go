@@ -10,13 +10,13 @@ import (
 /*
 cat /Users/atom/tmp/pods.json | jp keys
 
-cat /Users/atom/tmp/pods.json | jp keys[items.metadata.name,items.spec.initContainers.args]  out..table
+cat /Users/atom/github/abeytom/utilbox/go/resources/pods.json | jp keys[items.metadata.name,items.spec.containers.args]  out..table
 
-cat /Users/atom/tmp/pods.json | jp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP] out..table
-cat /Users/atom/tmp/pods.json | jp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP] out..table head[name,ns,hostIp,podIp]
+cat /Users/atom/github/abeytom/utilbox/go/resources/pods.json | jp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP] out..table
+cat /Users/atom/github/abeytom/utilbox/go/resources/pods.json | jp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP] out..table head[name,ns,hostIp,podIp]
 
 
-cat /Users/atom/tmp/pods.json | jp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP] out..table head[name,ns,hostIp,podIp] | csv row[1:] group[0]:count out..table fmt..c0..split:-..merge:-..ncol[-1] sort[4]:desc
+cat /Users/atom/github/abeytom/utilbox/go/resources/pods.json | jp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP] out..table head[name,ns,hostIp,podIp] | csv row[1:] group[0]:count out..table tr..c0..split:-..merge:-..ncol[-1] sort[4]:desc
 
 */
 import (
@@ -94,7 +94,7 @@ func JsonParse(args []string) {
 		} else {
 			keys := csvFmt.KeyDef.Fields
 			rows := Flatten(array, keys)
-			processOutput(csvFmt, rows, keys)
+			processOutput(csvFmt, rows, keys, 0)
 		}
 	}
 }
@@ -152,7 +152,7 @@ func processFlattenedResults(result map[string][]interface{}, keys []string, row
 						strVals[i2] = fmt.Sprintf("%v", value)
 					}
 					rowCols[i] = common.NewStringSet(strVals)
-				} else{
+				} else {
 					rowCols[i] = ""
 				}
 			}

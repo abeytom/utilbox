@@ -3,6 +3,7 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -211,6 +212,7 @@ func (s *StringSet) Values() []string {
 		keys[i] = k
 		i++
 	}
+	sort.Strings(keys) //fixme  preserve original order
 	return keys
 }
 

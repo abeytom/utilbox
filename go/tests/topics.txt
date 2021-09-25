@@ -1,0 +1,18 @@
+TOPIC                          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG        CONSUMER-ID                                       HOST                           CLIENT-ID
+topic1    44         808699          808699          0          consumer-5-c6ac0ffe-b453-41ad-a3a4-2b1265735ed3/10.9.27.3                     consumer-5
+topic1    45         808133          808133          0          consumer-5-c6ac0ffe-b453-41ad-a3a4-2b1265735ed3/10.9.27.3                     consumer-5
+topic1    46         809735          809735          0          consumer-5-c6ac0ffe-b453-41ad-a3a4-2b1265735ed3/10.9.27.3                     consumer-5
+topic1    47         808903          808903          0          consumer-5-c6ac0ffe-b453-41ad-a3a4-2b1265735ed3/10.9.27.3                     consumer-5
+topic1    48         808381          808381          0          consumer-6-729cd132-49b2-4ae1-8c54-e0181f206318/10.9.27.3                     consumer-6
+topic1    49         807305          807305          0          consumer-6-729cd132-49b2-4ae1-8c54-e0181f206318/10.9.27.3                     consumer-6
+topic1    50         808423          808423          0          consumer-6-729cd132-49b2-4ae1-8c54-e0181f206318/10.9.27.3                     consumer-6
+topic1    51         809139          809139          0          consumer-6-729cd132-49b2-4ae1-8c54-e0181f206318/10.9.27.3                     consumer-6
+topic2                    6          23              23              0          consumer-4-1a1a0f83-c54b-4708-a076-3d88e5bfd696/10.9.27.3                     consumer-4
+topic2                    7          27              27              0          consumer-4-1a1a0f83-c54b-4708-a076-3d88e5bfd696/10.9.27.3                     consumer-4
+topic2                    4          28              28              0          consumer-3-c9ab8ef6-6f82-495e-83b1-ee96f2052a74/10.9.27.3                     consumer-3
+topic2                    5          22              22              0          consumer-3-c9ab8ef6-6f82-495e-83b1-ee96f2052a74/10.9.27.3                     consumer-3
+topic2                    0          34              34              0          consumer-1-4d78daa5-13ff-4535-b965-aadc80bcd88e/10.9.27.3                     consumer-1
+topic2                    1          33              33              0          consumer-1-4d78daa5-13ff-4535-b965-aadc80bcd88e/10.9.27.3                     consumer-1
+topic2                    2          21              21              0          consumer-2-ebe5eadf-8712-4b84-8951-afc00117e325/10.9.27.3                     consumer-2
+topic2                    3          30              30              0          consumer-2-ebe5eadf-8712-4b84-8951-afc00117e325/10.9.27.3                     consumer-2
+topic3           0          26984839        26984839        0          consumer-21-2296df7b-b059-4748-9d11-3c6a8a147be1/10.9.27.3                     consumer-21
