@@ -35,6 +35,8 @@ build-osx:
 	find ../ -maxdepth 1 -type f ! -name "*.*" -exec cp "{}" $(OSX_OUT_BASE) \;
 	tar -zcvf bin/utilbox-osx.tar.gz -C ./bin/osx/ .
 
+build-tar : build-linux build-osx
+
 # git tag v0.2 -a && git push origin --tags
 
 

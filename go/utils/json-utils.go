@@ -94,7 +94,12 @@ func JsonParse(args []string) {
 		} else {
 			keys := csvFmt.KeyDef.Fields
 			rows := Flatten(array, keys)
-			processOutput(csvFmt, rows, keys, 0)
+			processOutput(csvFmt, &DataRows{
+				DataRows:     rows,
+				Headers:      keys,
+				GroupByCount: 0,
+				Converted:    false,
+			})
 		}
 	}
 }

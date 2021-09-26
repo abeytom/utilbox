@@ -223,4 +223,3 @@ func (s *StringSet) ToString() string {
 func (s *StringSet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.Values())
 }
-

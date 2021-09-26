@@ -15,7 +15,7 @@ import "encoding/json"
 type Conf struct {
 	Paths   map[string]string `json:"paths"`
 	Aliases map[string]string `json:"aliases"`
-	Tokens map[string]string `json:"tokens"`
+	Tokens  map[string]string `json:"tokens"`
 }
 
 /**
@@ -98,6 +98,8 @@ func Execute(args []string) {
 		var mapVals map[string]string
 		if subCmd == "cmd" || subCmd == "cmds" {
 			mapVals = conf.Aliases
+		} else if subCmd == "kv" {
+			mapVals = conf.Tokens
 		} else { //catch all
 			mapVals = conf.Paths
 		}

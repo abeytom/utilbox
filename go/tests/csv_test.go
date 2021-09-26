@@ -129,6 +129,22 @@ func TestCSVColTransform(t *testing.T) {
 	assertStringEquals(lines[0], "CONSUMER-ID,PARTITION")
 	assertStringEquals(lines[1], "10.9.27.3,44")
 	assertStringEquals(lines[17], "10.9.27.3,0")
+
+	// transform with adding columns and transforming existing cols
+	cmd = fmt.Sprintf("cat %v |csv tr..c5..split:/..col[-1]..add tr..c5..split:/..col[0] tr..c5..split:-..col[0,1]..merge:-..add  tr..c5..split:-..col[2:]..merge:-..add out..csv head[topic,partitio,in,out,lag,consumer,host,client,uuid,name,calc] 'calc([0]+\"-\"+[1])'", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 19)
+	assertStringEquals(lines[0], "topic,partitio,in,out,lag,consumer,host,client,uuid,name,calc")
+	assertStringEquals(lines[1], "topic1,44,808699,808699,0,consumer-5-c6ac0ffe-b453-41ad-a3a4-2b1265735ed3,10.9.27.3,consumer-5,c6ac0ffe-b453-41ad-a3a4-2b1265735ed3,consumer-5,topic1-44")
+	assertStringEquals(lines[17], "topic3,0,26984839,26984839,0,consumer-21-2296df7b-b059-4748-9d11-3c6a8a147be1,10.9.27.3,consumer-21,2296df7b-b059-4748-9d11-3c6a8a147be1,consumer-21,topic3-0")
+
+	// transform with adding columns and transforming existing cols with sort
+	cmd = fmt.Sprintf("cat %v |csv tr..c5..split:/..col[-1]..add tr..c5..split:/..col[0] tr..c5..split:-..col[0,1]..merge:-..add  tr..c5..split:-..col[2:]..merge:-..add out..csv head[topic,partitio,in,out,lag,consumer,host,client,uuid,name,calc] 'calc([0]+\"-\"+[1])' sort[10]:desc", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 19)
+	assertStringEquals(lines[0], "topic,partitio,in,out,lag,consumer,host,client,uuid,name,calc")
+	assertStringEquals(lines[1], "topic3,0,26984839,26984839,0,consumer-21-2296df7b-b059-4748-9d11-3c6a8a147be1,10.9.27.3,consumer-21,2296df7b-b059-4748-9d11-3c6a8a147be1,consumer-21,topic3-0")
+	assertStringEquals(lines[17], "topic1,44,808699,808699,0,consumer-5-c6ac0ffe-b453-41ad-a3a4-2b1265735ed3,10.9.27.3,consumer-5,c6ac0ffe-b453-41ad-a3a4-2b1265735ed3,consumer-5,topic1-44")
 }
 
 func TestCSVColGroupAndSort(t *testing.T) {
@@ -160,21 +176,6 @@ func TestCSVColGroupAndSort(t *testing.T) {
 	assertStringEquals(lines[2], "topic2,\"consumer-1,consumer-2,consumer-3,consumer-4\",218,218,0")
 	assertStringEquals(lines[3], "topic3,consumer-21,26984839,26984839,0")
 
-	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0] sort[0,2] out..json", fpath)
-	actual := unMarshallJsonBytes(execCmd(cmd))
-	expected := unMarshallJsonString("[{\"CURRENT-OFFSET\":6468718,\"HOST\":[\"consumer-5\",\"consumer-6\"],\"LAG\":0,\"LOG-END-OFFSET\":6468718,\"TOPIC\":\"topic1\"},{\"CURRENT-OFFSET\":218,\"HOST\":[\"consumer-1\",\"consumer-2\",\"consumer-3\",\"consumer-4\"],\"LAG\":0,\"LOG-END-OFFSET\":218,\"TOPIC\":\"topic2\"},{\"CURRENT-OFFSET\":26984839,\"HOST\":[\"consumer-21\"],\"LAG\":0,\"LOG-END-OFFSET\":26984839,\"TOPIC\":\"topic3\"}]")
-	assertDeepEquals(actual, expected)
-
-	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0] sort[0,2] head[topic,host,in,out,lag] out..json", fpath)
-	actual = unMarshallJsonBytes(execCmd(cmd))
-	expected = unMarshallJsonString("[{\"host\":[\"consumer-5\",\"consumer-6\"],\"in\":6468718,\"lag\":0,\"out\":6468718,\"topic\":\"topic1\"},{\"host\":[\"consumer-1\",\"consumer-2\",\"consumer-3\",\"consumer-4\"],\"in\":218,\"lag\":0,\"out\":218,\"topic\":\"topic2\"},{\"host\":[\"consumer-21\"],\"in\":26984839,\"lag\":0,\"out\":26984839,\"topic\":\"topic3\"}]")
-	assertDeepEquals(actual, expected)
-
-	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1] sort[2,1] out..json head[topic,groups,group,stats,in,out,lag]", fpath)
-	actual = unMarshallJsonBytes(execCmd(cmd))
-	assertIntEquals(len(actual), 3)
-	//todo validate the rest
-
 	// 2 group by
 	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1] sort[0,2]", fpath)
 	lines = execCmdGetLines(cmd)
@@ -204,8 +205,53 @@ func TestCSVColGroupAndSort(t *testing.T) {
 	assertStringEquals(lines[1], "topic2,consumer-2,21,21,0,1.33")
 	assertStringEquals(lines[17], "topic3,consumer-21,26984839,26984839,0,1.33")
 
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0] sort[0,2] out..json", fpath)
+	actual := unMarshallJsonBytes(execCmd(cmd))
+	expected := unMarshallJsonString("[{\"CURRENT-OFFSET\":6468718,\"HOST\":[\"consumer-5\",\"consumer-6\"],\"LAG\":0,\"LOG-END-OFFSET\":6468718,\"TOPIC\":\"topic1\"},{\"CURRENT-OFFSET\":218,\"HOST\":[\"consumer-1\",\"consumer-2\",\"consumer-3\",\"consumer-4\"],\"LAG\":0,\"LOG-END-OFFSET\":218,\"TOPIC\":\"topic2\"},{\"CURRENT-OFFSET\":26984839,\"HOST\":[\"consumer-21\"],\"LAG\":0,\"LOG-END-OFFSET\":26984839,\"TOPIC\":\"topic3\"}]")
+	assertDeepEquals(actual, expected)
+
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0] sort[0,2] head[topic,host,in,out,lag] out..json", fpath)
+	actual = unMarshallJsonBytes(execCmd(cmd))
+	expected = unMarshallJsonString("[{\"host\":[\"consumer-5\",\"consumer-6\"],\"in\":6468718,\"lag\":0,\"out\":6468718,\"topic\":\"topic1\"},{\"host\":[\"consumer-1\",\"consumer-2\",\"consumer-3\",\"consumer-4\"],\"in\":218,\"lag\":0,\"out\":218,\"topic\":\"topic2\"},{\"host\":[\"consumer-21\"],\"in\":26984839,\"lag\":0,\"out\":26984839,\"topic\":\"topic3\"}]")
+	assertDeepEquals(actual, expected)
+
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1] sort[2,1] out..json head[topic,groups,group,stats,in,out,lag]", fpath)
+	actual = unMarshallJsonBytes(execCmd(cmd))
+	assertIntEquals(len(actual), 3) //todo rest
+
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1] sort[2,1] out..json..levels:3", fpath)
+	var topics []TopicL3
+	json.Unmarshal(execCmd(cmd), &topics)
+	//fmt.Println(topics)
+	//assertIntEquals(len(actual), 3)
+	//item0 := actual[0]
+	//assertStringEquals(item0["TOPIC"].(string), "topic2")
+	//fmt.Println(item0["HOSTs"])
+	//hosts0 := item0["HOSTs"].([]map[string]interface{})
+	//fmt.Println(hosts0)
+	//assertIntEquals(len(hosts0), 4)
+	//host0 := hosts0[0]
+	//assertStringEquals(host0["HOST"].(string), "consumer3")
+	//host0Grps := host0["HOST-group"].([]map[string]interface{})
+	//assertIntEquals(len(host0Grps),1)
+
 	//todo how to validate the json output
 
+}
+
+type TopicL3 struct {
+	Topic string   `json:"TOPIC"`
+	Hosts []HostL3 `json:"HOSTs"`
+}
+type HostL3 struct {
+	Host   string      `json:"HOST"`
+	Groups []HostGrpL3 `json:"HOST-group"`
+}
+
+type HostGrpL3 struct {
+	In  int `json:"LOG-END-OFFSET"`
+	Out int `json:"CURRENT-OFFSET"`
+	Lag int `json:"LAG"`
 }
 
 func unMarshallJsonBytes(bytes []byte) []map[string]interface{} {

@@ -228,8 +228,8 @@ func processLines(csvFmt *CsvFormat, lines [][]string, dataHeaders []string) {
 	if csvFmt.HeaderDef != nil && csvFmt.HeaderDef.Fields != nil {
 		dataHeaders = csvFmt.HeaderDef.Fields
 	}
-	headers, dataRows, groupByCount := applyGroupBy(csvFmt, lines, dataHeaders)
-	processOutput(csvFmt, dataRows, headers, groupByCount)
+	data := applyGroupBy(csvFmt, lines, dataHeaders)
+	processOutput(csvFmt, data)
 
 	//dataRows = applyCalcAll(csvFmt, dataRows)
 	//if csvFmt.SortDef != nil {
@@ -267,24 +267,34 @@ func processLines(csvFmt *CsvFormat, lines [][]string, dataHeaders []string) {
 	//}
 }
 
-func processOutput(csvFmt *CsvFormat, dataRows []DataRow, defHeaders []string, groupByCount int) {
-	dataRows = applyCalcAll(csvFmt, dataRows)
+type DataRows struct {
+	DataRows     []DataRow
+	Headers      []string
+	GroupByCount int
+	Converted    bool
+}
+
+func processOutput(csvFmt *CsvFormat, data *DataRows) {
+	dataRows := applyCalcAll(csvFmt, data.DataRows)
 
 	if csvFmt.SortDef != nil {
-		dataRows = convertAndApplySort(csvFmt, dataRows)
+		if data.Converted {
+			dataRows = applySort(csvFmt, dataRows)
+		} else {
+			dataRows = convertAndApplySort(csvFmt, dataRows)
+		}
 	}
-
 	if csvFmt.IsLMerge {
 		processLMergeOutput(csvFmt, dataRows)
 		return
 	}
 
-	headers := applyCalcHeaders(csvFmt, defHeaders)
+	headers := applyCalcHeaders(csvFmt, data.Headers)
 	def := csvFmt.OutputDef
 	if def == nil {
 		processCsvOutput(dataRows, csvFmt, headers)
 	} else if def.Type == "json" {
-		processJsonOutput(dataRows, csvFmt, headers, groupByCount)
+		processJsonOutput(dataRows, csvFmt, headers, data.GroupByCount)
 	} else if def.Type == "table" {
 		processTableOutput(dataRows, csvFmt, headers)
 	} else {
@@ -397,9 +407,14 @@ func pickWords(words []string, indices []int) []string {
 	return vals
 }
 
-func applyGroupBy(csvFmt *CsvFormat, lines [][]string, defHeaders []string) ([]string, []DataRow, int) {
+func applyGroupBy(csvFmt *CsvFormat, lines [][]string, defHeaders []string) *DataRows {
 	if csvFmt.MapRed == nil || csvFmt.MapRed.ColIndices == nil {
-		return defHeaders, toDataRows(lines), 0
+		return &DataRows{
+			DataRows:     toDataRows(lines),
+			Headers:      defHeaders,
+			GroupByCount: 0,
+			Converted:    false,
+		}
 	}
 	firstRow := lines[0]
 	//compute the keyIndices
@@ -423,7 +438,12 @@ func applyGroupBy(csvFmt *CsvFormat, lines [][]string, defHeaders []string) ([]s
 		groupMap.Put(keys, values)
 	}
 	headers := applyGroupByHeaders(csvFmt, defHeaders, keyIndices)
-	return headers, groupMap.PostProcess(), len(keyIndices)
+	return &DataRows{
+		DataRows:     groupMap.PostProcess(),
+		Headers:      headers,
+		GroupByCount: len(keyIndices),
+		Converted:    true,
+	}
 
 	//dataRows := applyCalcAll(csvFmt, groupMap.PostProcess())
 	//if csvFmt.SortDef != nil {
@@ -861,9 +881,9 @@ func convertAndApplySort(csvFmt *CsvFormat, rows []DataRow) []DataRow {
 	return dataRows
 }
 
-func applySort(rows []DataRow, csvFmt *CsvFormat) {
+func applySort(csvFmt *CsvFormat, rows []DataRow) []DataRow {
 	if len(rows) == 0 {
-		return
+		return nil
 	}
 	sortDef := csvFmt.SortDef
 	sortCols := sortDef.SortCols
@@ -874,6 +894,7 @@ func applySort(rows []DataRow, csvFmt *CsvFormat) {
 		Desc:    sortDef.Desc,
 	}
 	sort.Sort(rowSort)
+	return rows
 }
 
 func hasWholeOpr(csvFmt *CsvFormat) bool {
@@ -1088,24 +1109,29 @@ func extractCsv(words []string, ext *common.IntRange, fmtMap map[int][]ColumnFor
 	ftrWords := common.ApplyRange(words, ext)
 	var vals []string
 	for _, ftrWord := range *ftrWords {
-		word := processWord(ftrWord, fmtMap)
+		word, newWords := processWord(ftrWord, fmtMap)
 		vals = append(vals, word)
+		if len(newWords) > 0 {
+			vals = append(vals, newWords...)
+		}
 	}
 	return vals
 }
 
-func processWord(ftrWord common.FilterStr, fmtMap map[int][]ColumnFormat) string {
+func processWord(ftrWord common.FilterStr, fmtMap map[int][]ColumnFormat) (string, []string) {
 	if fmtMap == nil {
-		return ftrWord.Str
+		return ftrWord.Str, nil
 	}
 	colFormats, exists := fmtMap[ftrWord.Index]
 	if !exists || len(colFormats) <= 0 {
-		return ftrWord.Str
+		return ftrWord.Str, nil
 	}
 	word := ftrWord.Str
+	var words []string
 	for _, colFormat := range colFormats {
+		newWord := word
 		if colFormat.Split != "" {
-			parts := strings.Split(word, colFormat.Split)
+			parts := strings.Split(newWord, colFormat.Split)
 			if colFormat.ColExt != nil {
 				parts = extractCsv(parts, colFormat.ColExt, nil)
 			}
@@ -1113,19 +1139,24 @@ func processWord(ftrWord common.FilterStr, fmtMap map[int][]ColumnFormat) string
 			if colFormat.Merge != "" {
 				merge = colFormat.Merge
 			}
-			word = strings.Join(parts, merge)
+			newWord = strings.Join(parts, merge)
 		}
 		if colFormat.Prefix != "" {
-			word = colFormat.Prefix + word
+			newWord = colFormat.Prefix + newWord
 		}
 		if colFormat.Suffix != "" {
-			word = word + colFormat.Suffix
+			newWord = newWord + colFormat.Suffix
 		}
 		if colFormat.Wrap != "" {
-			word = colFormat.Wrap + word + colFormat.Wrap
+			newWord = colFormat.Wrap + newWord + colFormat.Wrap
+		}
+		if colFormat.AddCol {
+			words = append(words, newWord)
+		} else {
+			word = newWord
 		}
 	}
-	return word
+	return word, words
 }
 
 func isWithInBounds(ext *common.IntRange, idx int) bool {
