@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestKeys(t *testing.T) {
+func TestJsonKeys(t *testing.T) {
 	podsJson := path.Join(getCurrentDir(t), "pods.json")
 
 	cmd := fmt.Sprintf("cat %v | jp keys", podsJson)
@@ -21,7 +21,7 @@ func TestKeys(t *testing.T) {
 	}
 }
 
-func TestKeyMultipleVals(t *testing.T) {
+func TestJsonKeyMultipleVals(t *testing.T) {
 	podsJson := path.Join(getCurrentDir(t), "pods.json")
 
 	cmd := fmt.Sprintf("cat %v | jp  keys[items.metadata.name,items.spec.containers.args]  out..table", podsJson)
@@ -38,7 +38,7 @@ func TestKeyMultipleVals(t *testing.T) {
 	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7,\"nginx,start\"")
 }
 
-func TestKeyBlankVals(t *testing.T) {
+func TestJsonKeyBlankVals(t *testing.T) {
 	podsJson := path.Join(getCurrentDir(t), "pods.json")
 
 	cmd := fmt.Sprintf("cat %v | jp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP] out..table head[name,ns,hostIp,podIp]", podsJson)
@@ -56,7 +56,7 @@ func TestKeyBlankVals(t *testing.T) {
 	assertStringEquals(lines[6], "storefront-cd75b46c7-kl8jj,sample,,")
 }
 
-func TestCount(t *testing.T) {
+func TestJsonCount(t *testing.T) {
 	podsJson := path.Join(getCurrentDir(t), "pods.json")
 
 	cmd := fmt.Sprintf("cat %v | jp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP] out..table head[name,ns,hostIp,podIp] | csv row[1:] group[0]:count out..table tr..c0..split:-..merge:-..ncol[-1] sort[4]:desc", podsJson)

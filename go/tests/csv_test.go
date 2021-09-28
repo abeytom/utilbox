@@ -71,7 +71,19 @@ func TestCSVSimple(t *testing.T) {
 	assertStringEquals(lines[1], "topic2    2            21          21          0      consumer-2-ebe5eadf-8712-4b84-8951-afc00117e325/10.9.27.3     consumer-2     42          ")
 	assertStringEquals(lines[17], "topic3    0            26984839    26984839    0      consumer-21-2296df7b-b059-4748-9d11-3c6a8a147be1/10.9.27.3    consumer-21    53969678    ")
 
-	//todo sort
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] 'calc(([2]/[3])+1/3)' sort[2]", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 19)
+	assertStringEquals(lines[0], "TOPIC,HOST,CURRENT-OFFSET,LOG-END-OFFSET,LAG,(CURRENT-OFFSET/LOG-END-OFFSET)+1/3")
+	assertStringEquals(lines[1], "topic2,consumer-2,21,21,0,1.33")
+	assertStringEquals(lines[17], "topic3,consumer-21,26984839,26984839,0,1.33")
+
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] 'calc(([2]/[3])+1/3)' sort[2] head[topic,host,in,out,lag,calc]", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 19)
+	assertStringEquals(lines[0], "topic,host,in,out,lag,calc")
+	assertStringEquals(lines[1], "topic2,consumer-2,21,21,0,1.33")
+	assertStringEquals(lines[17], "topic3,consumer-21,26984839,26984839,0,1.33")
 
 }
 
@@ -184,6 +196,20 @@ func TestCSVColGroupAndSort(t *testing.T) {
 	assertStringEquals(lines[1], "topic1,consumer-6,3233248,3233248,0")
 	assertStringEquals(lines[7], "topic3,consumer-21,26984839,26984839,0")
 
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1]:count sort[0,2]", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 9)
+	assertStringEquals(lines[0], "TOPIC,HOST,CURRENT-OFFSET,LOG-END-OFFSET,LAG,count")
+	assertStringEquals(lines[1], "topic1,consumer-6,3233248,3233248,0,4")
+	assertStringEquals(lines[7], "topic3,consumer-21,26984839,26984839,0,1")
+
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1]:count sort[0,2] head[topic,host,in,out,lag,count]", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 9)
+	assertStringEquals(lines[0], "topic,host,in,out,lag,count")
+	assertStringEquals(lines[1], "topic1,consumer-6,3233248,3233248,0,4")
+	assertStringEquals(lines[7], "topic3,consumer-21,26984839,26984839,0,1")
+
 	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1] sort[0,2] head[topic,host,in,out,lag]", fpath)
 	lines = execCmdGetLines(cmd)
 	assertIntEquals(len(lines), 9)
@@ -191,19 +217,19 @@ func TestCSVColGroupAndSort(t *testing.T) {
 	assertStringEquals(lines[1], "topic1,consumer-6,3233248,3233248,0")
 	assertStringEquals(lines[7], "topic3,consumer-21,26984839,26984839,0")
 
-	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] 'calc(([2]/[3])+1/3)' sort[2]", fpath)
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1] sort[0,2] 'calc([2]+[3])'", fpath)
 	lines = execCmdGetLines(cmd)
-	assertIntEquals(len(lines), 19)
-	assertStringEquals(lines[0], "TOPIC,HOST,CURRENT-OFFSET,LOG-END-OFFSET,LAG,(CURRENT-OFFSET/LOG-END-OFFSET)+1/3")
-	assertStringEquals(lines[1], "topic2,consumer-2,21,21,0,1.33")
-	assertStringEquals(lines[17], "topic3,consumer-21,26984839,26984839,0,1.33")
+	assertIntEquals(len(lines), 9)
+	assertStringEquals(lines[0], "TOPIC,HOST,CURRENT-OFFSET,LOG-END-OFFSET,LAG,CURRENT-OFFSET+LOG-END-OFFSET")
+	assertStringEquals(lines[1], "topic1,consumer-6,3233248,3233248,0,6466496")
+	assertStringEquals(lines[7], "topic3,consumer-21,26984839,26984839,0,53969678")
 
-	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] 'calc(([2]/[3])+1/3)' sort[2] head[topic,host,in,out,lag,calc]", fpath)
+	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1] sort[0,2] head[topic,host,in,out,lag,calc] 'calc([2]+[3])'", fpath)
 	lines = execCmdGetLines(cmd)
-	assertIntEquals(len(lines), 19)
+	assertIntEquals(len(lines), 9)
 	assertStringEquals(lines[0], "topic,host,in,out,lag,calc")
-	assertStringEquals(lines[1], "topic2,consumer-2,21,21,0,1.33")
-	assertStringEquals(lines[17], "topic3,consumer-21,26984839,26984839,0,1.33")
+	assertStringEquals(lines[1], "topic1,consumer-6,3233248,3233248,0,6466496")
+	assertStringEquals(lines[7], "topic3,consumer-21,26984839,26984839,0,53969678")
 
 	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0] sort[0,2] out..json", fpath)
 	actual := unMarshallJsonBytes(execCmd(cmd))
@@ -219,23 +245,13 @@ func TestCSVColGroupAndSort(t *testing.T) {
 	actual = unMarshallJsonBytes(execCmd(cmd))
 	assertIntEquals(len(actual), 3) //todo rest
 
+	//fixme the order of the json is getting messed-up due to the last of ordered map
+	// at the time of processing the json output
 	cmd = fmt.Sprintf("cat %v | csv col[0,6,2,3,4] group[0,1] sort[2,1] out..json..levels:3", fpath)
 	var topics []TopicL3
 	json.Unmarshal(execCmd(cmd), &topics)
-	//fmt.Println(topics)
-	//assertIntEquals(len(actual), 3)
-	//item0 := actual[0]
-	//assertStringEquals(item0["TOPIC"].(string), "topic2")
-	//fmt.Println(item0["HOSTs"])
-	//hosts0 := item0["HOSTs"].([]map[string]interface{})
-	//fmt.Println(hosts0)
-	//assertIntEquals(len(hosts0), 4)
-	//host0 := hosts0[0]
-	//assertStringEquals(host0["HOST"].(string), "consumer3")
-	//host0Grps := host0["HOST-group"].([]map[string]interface{})
-	//assertIntEquals(len(host0Grps),1)
 
-	//todo how to validate the json output
+	//todo test the sort & conversion logic when the same column contains mixed (str, int) values
 
 }
 

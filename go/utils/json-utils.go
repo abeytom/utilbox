@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 )
@@ -56,6 +57,49 @@ func (t *TreeNode) FullKey() string {
 	return appendKey(t.Parent.FullKey(), t.Key)
 }
 
+func YamlParse(args []string) {
+	filePath := args[0]
+
+	jsonBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Fatalf("Cannot read the file %v, the error is %v", filePath, err)
+	}
+	x := bytes.TrimLeft(jsonBytes, " \t\r\n")
+	isArray := len(x) > 0 && x[0] == '-'
+	var array []map[string]interface{}
+	if isArray {
+		err := yaml.Unmarshal(jsonBytes, &array)
+		if err != nil {
+			log.Printf("Error while marshalling YAML into array. The error is [%v]\n", err)
+		}
+	} else {
+		var jsonMap map[interface{}]interface{}
+		err := yaml.Unmarshal(jsonBytes, &jsonMap)
+		if err != nil {
+			log.Printf("Error while marshalling YAML into map. The error is [%v]\n", err)
+		}
+		//array = append(array, jsonMap)
+	}
+	csvFmt := parseCsvArgs(args)
+	if csvFmt.KeyDef != nil {
+		if len(csvFmt.KeyDef.Fields) == 0 {
+			keys := JsonKeys(array)
+			for _, key := range keys {
+				fmt.Printf("%v\n", key.Key)
+			}
+		} else {
+			keys := csvFmt.KeyDef.Fields
+			rows := Flatten(array, keys)
+			processOutput(csvFmt, &DataRows{
+				DataRows:     rows,
+				Headers:      keys,
+				GroupByCount: 0,
+				Converted:    false,
+			})
+		}
+	}
+}
+
 func JsonParse(args []string) {
 	filePath := args[0]
 
@@ -77,7 +121,7 @@ func JsonParse(args []string) {
 		}
 		array = append(array, jsonMap)
 	} else if isArray {
-		json.Unmarshal(jsonBytes, &array)
+		err := json.Unmarshal(jsonBytes, &array)
 		if err != nil {
 			log.Printf("Error while marshalling json into array %v\n", err)
 		}
