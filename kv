@@ -1,10 +1,3 @@
 #!/usr/bin/env zsh
 
-out=$(goexec "tok" "$@")
-if [[ $out == ERR* ]]; then
-  echo "" > "/tmp/x_auth_token"
-elif [[ "$1"  == "bh" ]]; then
-  echo "$out" > "/tmp/x_auth_token"
-else
-  echo "$out"
-fi
+goexec "tok" "$@"

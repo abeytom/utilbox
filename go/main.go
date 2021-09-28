@@ -12,6 +12,8 @@ func main() {
 	args := os.Args
 	if args[1] == "utils" {
 		utils.Execute(args[1:])
+	}else if args[1] == "run" {
+		utils.ExecuteCommand(args[1:])
 	} else if args[1] == "k8" {
 		k8.Execute(args[1:])
 	} else if args[1] == "fmt" {

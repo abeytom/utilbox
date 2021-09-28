@@ -1,0 +1,12 @@
+#! /bin/bash
+
+out=$(goexec "run" "$@")
+if [ ! -z "$out" ]; then
+  if [[ $out == *"|"* ]]; then #not the best way but works for now
+    # commands like ssh wont work this way
+    bash -c "$out"
+  else
+    # commands with pipe wont work this way
+    command $out
+  fi
+fi

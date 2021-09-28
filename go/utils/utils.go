@@ -4,18 +4,22 @@ import (
 	"fmt"
 	"github.com/abeytom/utilbox/common"
 	"io/ioutil"
+	"log"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 import "encoding/json"
 
 type Conf struct {
-	Paths   map[string]string `json:"paths"`
-	Aliases map[string]string `json:"aliases"`
-	Tokens  map[string]string `json:"tokens"`
+	Paths        map[string]string `json:"paths"`
+	Aliases      map[string]string `json:"aliases"`
+	AliasIndices map[string]string `json:"aliasIndices"`
+	Tokens       map[string]string `json:"tokens"`
 }
 
 /**
@@ -64,12 +68,25 @@ func Execute(args []string) {
 		} else if subCmd == "cmd" {
 			fullCmd := args[4]
 			aliases := conf.Aliases
+			indices := conf.AliasIndices
+			nextIndex := findNextIndex(indices)
 			if path, ok := aliases[alias]; !ok || (len(args) >= 6 && args[5] == "-f") {
 				aliases[alias] = fullCmd
+				indices[nextIndex] = alias
 				writeJson(conf, baseDir)
 				fmt.Printf("INFO:COMMAND_ADDED [%s=%s]", alias, fullCmd)
 			} else {
 				fmt.Printf("ERR:COMMAND_ALIAS_EXISTS [%s=%s]", alias, path)
+			}
+		} else if subCmd == "kv" {
+			fullCmd := args[4]
+			aliases := conf.Tokens
+			if path, ok := aliases[alias]; !ok || (len(args) >= 6 && args[5] == "-f") {
+				aliases[alias] = fullCmd
+				writeJson(conf, baseDir)
+				fmt.Printf("INFO:KV_ADDED [%s=%s]", alias, fullCmd)
+			} else {
+				fmt.Printf("ERR:KV_EXISTS [%s=%s]", alias, path)
 			}
 		}
 	} else if cmd == "get" || cmd == "pbc" {
@@ -83,6 +100,9 @@ func Execute(args []string) {
 		} else if subCmd == "path" {
 			alias = args[3]
 			mapVals = conf.Paths
+		} else if subCmd == "kv" {
+			alias = args[3]
+			mapVals = conf.Tokens
 		} else {
 			alias = args[2]
 			mapVals = mergeMaps(conf.Aliases, conf.Paths)
@@ -98,6 +118,8 @@ func Execute(args []string) {
 		var mapVals map[string]string
 		if subCmd == "cmd" || subCmd == "cmds" {
 			mapVals = conf.Aliases
+			printCmdList(conf)
+			return
 		} else if subCmd == "kv" {
 			mapVals = conf.Tokens
 		} else { //catch all
@@ -106,7 +128,7 @@ func Execute(args []string) {
 		keys := *getSortedMapKeys(&mapVals)
 		fmt.Printf("INFO: LIST \n\n")
 		for index, k := range keys {
-			fmt.Printf("%d. %s=%s\n", index, k, mapVals[k])
+			fmt.Printf("%d. %s=%s\n", index+1, k, mapVals[k])
 		}
 		fmt.Printf("\n")
 	} else if cmd == "exec" {
@@ -114,16 +136,20 @@ func Execute(args []string) {
 		cmdArgs := args[3:]
 		conf := getConf(baseDir)
 		aliases := conf.Aliases
+		indices := conf.AliasIndices
 		if path, ok := aliases[alias]; ok {
 			allArgs := append([]string{path}, cmdArgs...)
 			fmt.Printf("%s", strings.Join(allArgs, " "))
 		} else {
-			value, errStr := lookupValueByKeyIndex(alias, aliases, "COMMAND")
-			if errStr != "" {
-				fmt.Print(errStr)
+			if key, ok := indices[alias]; ok {
+				if path, ok := aliases[key]; ok {
+					allArgs := append([]string{path}, cmdArgs...)
+					fmt.Printf("%s", strings.Join(allArgs, " "))
+				} else {
+					fmt.Fprintf(os.Stderr, "Alias [%v] not found\n", key)
+				}
 			} else {
-				allArgs := append([]string{value}, cmdArgs...)
-				fmt.Printf("%s", strings.Join(allArgs, " "))
+				fmt.Fprintf(os.Stderr, "Alias or Index [%v] not found\n", alias)
 			}
 		}
 		//} else if cmd == "path" {
@@ -145,6 +171,75 @@ func Execute(args []string) {
 		HandleCsv(args[2:])
 	} else {
 		fmt.Printf("ERR:UNKNOWN_COMMAND [%s]", cmd)
+	}
+}
+
+func printCmdList(conf *Conf) {
+	indices := make([]int, len(conf.AliasIndices))
+	i := 0
+	for indexStr, _ := range conf.AliasIndices {
+		val, err := strconv.Atoi(indexStr)
+		if err != nil {
+			continue
+		}
+		indices[i] = val
+		i++
+	}
+	sort.Ints(indices)
+	fmt.Println("INFO: LIST\n")
+	for index, _ := range indices {
+		indexStr := strconv.Itoa(index)
+		key := conf.AliasIndices[indexStr]
+		value := conf.Aliases[key]
+		fmt.Printf("%v. %v=%v\n", index, key, value)
+	}
+}
+
+func findNextIndex(indices map[string]string) string {
+	val := 0
+	for k, _ := range indices {
+		intVal, err := strconv.Atoi(k)
+		if err != nil {
+			continue
+		}
+		if intVal > val {
+			val = intVal
+		}
+	}
+	return strconv.Itoa(val + 1)
+}
+
+func ExecuteCommand(args []string) {
+	baseDir := getBaseDir()
+	alias := args[1]
+	cmdArgs := args[2:]
+	conf := getConf(baseDir)
+	aliases := conf.Aliases
+	indices := conf.AliasIndices
+	if path, ok := aliases[alias]; ok {
+		allArgs := append([]string{path}, cmdArgs...)
+		fmt.Printf("%s", strings.Join(allArgs, " "))
+	} else {
+		if key, ok := indices[alias]; ok {
+			if path, ok := aliases[key]; ok {
+				allArgs := append([]string{path}, cmdArgs...)
+				fmt.Printf("%s", strings.Join(allArgs, " "))
+			} else {
+				fmt.Fprintf(os.Stderr, "Alias [%v] not found\n", key)
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Alias or Index [%v] not found\n", alias)
+		}
+	}
+}
+
+func doExecCommand(args []string) {
+	command := exec.Command(args[0], args[1:]...)
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	err := command.Run()
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 

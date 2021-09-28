@@ -23,7 +23,7 @@ func BearerToken(args []string) {
 		if token, ok := tokens[key]; ok {
 			fmt.Printf("Authorization: Bearer %s", token)
 		} else {
-			fmt.Printf("ERR:INVALID_TOKEN [%s]", key)
+			fmt.Fprintf(os.Stderr,"ERR:INVALID_TOKEN [%s]", key)
 		}
 	} else {
 		tokens := conf.Tokens
@@ -31,7 +31,7 @@ func BearerToken(args []string) {
 		if token, ok := tokens[key]; ok {
 			fmt.Print(token)
 		} else {
-			fmt.Printf("ERR:INVALID_TOKEN [%s]", key)
+			fmt.Fprintf(os.Stderr,"ERR:INVALID_TOKEN [%s]", key)
 		}
 	}
 }
