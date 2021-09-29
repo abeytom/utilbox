@@ -15,7 +15,7 @@ func main() {
 	}else if args[1] == "run" {
 		utils.ExecuteCommand(args[1:])
 	} else if args[1] == "k8" {
-		k8.Execute(args[1:])
+		k8.Execute(args)
 	} else if args[1] == "fmt" {
 		utils.Format(args[1:])
 	} else if args[1] == "gcloud_art" {

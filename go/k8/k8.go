@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,9 +44,10 @@ func Execute(allArgs []string) {
 		ns = "default"
 	}
 	args := allArgs[1:]
-	cmdFile := args[0]
+	//cmdFile := args[0]
 
 	os.Setenv("k8exec", "")
+	var cmd string
 
 	//kc log podname*
 	//kc log -1
@@ -74,7 +75,7 @@ func Execute(allArgs []string) {
 			restArgs = append(restArgs, "--tail=100", "-f")
 		}
 		args := append([]string{"kubectl", "-n", ns, "logs", name}, restArgs...)
-		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
+		cmd = strings.Join(args, " ")
 	} else if args[1] == "ssh" {
 		//kc ssh podname* [:index] [-- sh]
 		indexParam := getIndexParam(args)
@@ -99,7 +100,7 @@ func Execute(allArgs []string) {
 			restArgs = []string{"--", "bash"}
 		}
 		args := append([]string{"kubectl", "-n", ns, "exec", "-it", name}, restArgs...)
-		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
+		cmd = strings.Join(args, " ")
 	} else if args[1] == "pod" {
 		indexParam := getIndexParam(args)
 		name, err := getPodByName(ns, args[2], indexParam, false)
@@ -107,7 +108,7 @@ func Execute(allArgs []string) {
 			return
 		}
 		args := []string{"echo", name}
-		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
+		cmd = strings.Join(args, " ")
 	} else if args[1] == "secret" {
 		var matchIndex = -1
 		if len(args) > 3 {
@@ -125,17 +126,20 @@ func Execute(allArgs []string) {
 		str, err := getSecretStr(name, ns)
 		if str != "" {
 			args2 := []string{"echo", str}
-			ioutil.WriteFile(cmdFile, []byte(strings.Join(args2, " ")), 0644)
+			cmd = strings.Join(args2, " ")
 		}
 	} else if args[1] == "events" || args[1] == "event" {
 		args := append([]string{"kubectl", "-n", ns, "get", "events", "--sort-by={.lastTimestamp}"})
-		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
+		cmd = strings.Join(args, " ")
 	} else {
 		restArgs := args[1:]
 		//args := append([]string{"kubectl", "-n", ns}, restArgs...)
 		args := append(append(getKubeArgs(ns, restArgs)), restArgs...)
 		//fmt.Printf("Running the command %s\n", args)
-		ioutil.WriteFile(cmdFile, []byte(strings.Join(args, " ")), 0644)
+		cmd = strings.Join(args, " ")
+	}
+	if cmd != "" {
+		fmt.Printf(cmd)
 	}
 }
 
@@ -163,7 +167,7 @@ func getSecretStr(name string, namespace string) (string, error) {
 	args := []string{"-n", namespace, "describe", "secret", name}
 	secretStr, errOut, err := ExecuteCommand("kubectl", args...)
 	if err != nil || secretStr == "" {
-		fmt.Printf("[error] The get pods returned error. %s", errOut)
+		log.Fatalf( "[error] The get pods returned error. %s\n", errOut)
 		return "", nil
 	}
 	secretListStr := string(secretStr[:])
@@ -175,7 +179,7 @@ func getSecretStr(name string, namespace string) (string, error) {
 			return strings.Trim(replaced, " "), nil
 		}
 	}
-	fmt.Print("[error] Couldnt get the token from the secret", errOut)
+	log.Fatalf( "[error] Couldnt get the token from the secret\n", errOut)
 	return "", nil
 }
 
@@ -183,7 +187,7 @@ func getSecretByName(namespace string, nameMatch string, matchIndex int) (string
 	args := []string{"-n", namespace, "get", "secret", nameMatch, "-o", "yaml"}
 	secretStr, errOut, err := ExecuteCommand("kubectl", args...)
 	if err != nil || secretStr == "" {
-		fmt.Printf("[error] The get secrets returned error. %s", errOut)
+		log.Fatalf( "[error] The get secrets returned error. %s\n", errOut)
 		return "", nil
 	}
 	yamlMap := make(map[interface{}]interface{})
@@ -192,10 +196,10 @@ func getSecretByName(namespace string, nameMatch string, matchIndex int) (string
 	for key, value := range dataMap {
 		dec, err := base64.StdEncoding.DecodeString(value.(string))
 		if err != nil {
-			fmt.Printf("[error] Error while decoding the secret. %v", err)
+			fmt.Fprintf(os.Stderr, "[error] Error while decoding the secret. %v\n", err)
 			continue
 		}
-		fmt.Printf("%s =>\n%s\n\n\n", key, string(dec))
+		fmt.Fprintf(os.Stderr, "%s =>\n%s\n\n\n", key, string(dec))
 	}
 	return "", nil
 }
@@ -222,7 +226,7 @@ func getPods(namespace string) *[]Pod {
 	podsStr, errOut, err := ExecuteCommand("kubectl", args...)
 	pods := []Pod{}
 	if err != nil || podsStr == "" {
-		fmt.Printf("[error] The get pods returned error. %s", errOut)
+		fmt.Fprintf(os.Stderr, "[error] The get pods returned error. %s\n", errOut)
 		return &pods
 	}
 
@@ -260,7 +264,7 @@ func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly
 		}
 		match, err := filepath.Match(podMatch, pod.Name)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 		}
 		if match {
 			matchedPods = append(matchedPods, pod)
@@ -268,20 +272,22 @@ func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly
 	}
 
 	if matchIndex >= len(matchedPods) {
-		fmt.Printf("[error] Invalid Match Index\n")
+		log.Fatalf("[error] Invalid Match Index")
 		return "", nil
 	}
 	if len(matchedPods) == 0 {
-		fmt.Printf("[error] Cannot find a pod in this namespace %s with name prefix %s\n", namespace, podMatch)
+		log.Fatalf("[error] Cannot find a pod in this namespace %s with name prefix %s\n", namespace, podMatch)
 	} else if len(matchedPods) > 1 {
 		if matchIndex >= 0 {
 			return matchedPods[matchIndex].Name, nil
 		}
-		fmt.Printf("[error] Multiple Matches found for namespace %s with name prefix %s\n\n", namespace, podMatch)
+		fmt.Fprintf(os.Stderr, "[error] Multiple Matches found for namespace %s with name prefix %s\n\n", namespace, podMatch)
 		matchedPods = *sortPods(&matchedPods)
 		for i, mp := range matchedPods {
-			fmt.Printf("%d. %s\t%s\t%s\t%s\t%s\n", i, mp.Name, mp.Ready, mp.Status, mp.Restarts, mp.AgeStr)
+			//todo table based formatting
+			fmt.Fprintf(os.Stderr, "%d. %s\t%s\t%s\t%s\t%s\n", i, mp.Name, mp.Ready, mp.Status, mp.Restarts, mp.AgeStr)
 		}
+		log.Fatalf("Exiting")
 	} else {
 		return matchedPods[0].Name, nil
 	}
@@ -318,7 +324,7 @@ func ExecuteCommand(cmdName string, args ...string) (string, string, error) {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println("[error] " + fmt.Sprint(err) + ": " + stderr.String())
+		log.Fatalf("[error] %v: %v", fmt.Sprint(err), stderr.String())
 		return "", stderr.String(), err
 	}
 	return out.String(), "", nil
