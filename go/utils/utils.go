@@ -209,7 +209,6 @@ func findNextIndex(indices map[string]string) string {
 	}
 	return strconv.Itoa(val + 1)
 }
-
 func ExecuteCommand(args []string) {
 	baseDir := getBaseDir()
 	alias := args[1]
@@ -217,14 +216,15 @@ func ExecuteCommand(args []string) {
 	conf := getConf(baseDir)
 	aliases := conf.Aliases
 	indices := conf.AliasIndices
+	var command string
 	if path, ok := aliases[alias]; ok {
 		allArgs := append([]string{path}, cmdArgs...)
-		fmt.Printf("%s", strings.Join(allArgs, " "))
+		command = strings.Join(allArgs, " ")
 	} else {
 		if key, ok := indices[alias]; ok {
 			if path, ok := aliases[key]; ok {
 				allArgs := append([]string{path}, cmdArgs...)
-				fmt.Printf("%s", strings.Join(allArgs, " "))
+				command = strings.Join(allArgs, " ")
 			} else {
 				fmt.Fprintf(os.Stderr, "Alias [%v] not found\n", key)
 			}
@@ -232,6 +232,16 @@ func ExecuteCommand(args []string) {
 			fmt.Fprintf(os.Stderr, "Alias or Index [%v] not found\n", alias)
 		}
 	}
+	if command == "" {
+		return
+	}
+	stdinBytes := readStdIn()
+	if len(stdinBytes) <= 0 {
+		fmt.Printf("%v", command)
+		return
+	}
+	ioutil.WriteFile("/tmp/utilbox_run_tmp", stdinBytes, 0644)
+	fmt.Printf("%v", "cat /tmp/utilbox_run_tmp | "+command)
 }
 
 func doExecCommand(args []string) {

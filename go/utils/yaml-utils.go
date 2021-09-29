@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/abeytom/utilbox/common"
 	"gopkg.in/yaml.v2"
@@ -11,6 +12,9 @@ import (
 
 func YamlParse(args []string) {
 	yamlBytes := readStdIn()
+	if yamlBytes == nil {
+		log.Fatal(errors.New("there is no data to read from STDIN"))
+	}
 	x := bytes.TrimLeft(yamlBytes, " \t\r\n")
 	isArray := len(x) > 0 && x[0] == '-'
 	var array []map[interface{}]interface{}

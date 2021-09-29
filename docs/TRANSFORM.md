@@ -29,6 +29,8 @@ cat pods.txt | csv col[1]
 - `calc`
 - `sort`
 - `head`
+- `-inhead`
+- `-outhead`
 - `out`
 - `lmerge`
 
@@ -158,6 +160,16 @@ head[col1,col2,col3]
 In case of **JSON** output, additional header names can be set to normalize the output into a tree structure based on
 the _grouping_. It will infer the _level count_ based on the count of additional headers.
 
+#### -inhead
+_minus inhead_
+
+This indicates that there is no header in the input. The headers for the output can be added using the `head[...]` flag 
+
+#### -outhead
+_minus outhead_
+
+Omit headers while printing the output. Valid only for `table` and `csv` output formats 
+
 #### out
 
 The output format
@@ -209,6 +221,7 @@ kubectl get pods -o json | jp keys[items.metadata.name,items.metadata.namespace,
 - `keys`
 - `out`
 - `head`
+- `-outhead`
 - `sort`
 - `calc`
 

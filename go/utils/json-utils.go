@@ -73,13 +73,15 @@ func readStdIn() []byte {
 		}
 		return stdin
 	} else {
-		log.Fatal(errors.New("there is no data to read from STDIN"))
 		return nil
 	}
 }
 
 func JsonParse(args []string) {
 	jsonBytes := readStdIn()
+	if jsonBytes == nil{
+		log.Fatal(errors.New("there is no data to read from STDIN"))
+	}
 	x := bytes.TrimLeft(jsonBytes, " \t\r\n")
 	isArray := len(x) > 0 && x[0] == '['
 	isObject := len(x) > 0 && x[0] == '{'
@@ -281,10 +283,12 @@ func splitKey(key string) []string {
 	var segments []string
 	for i := 0; i < len(chars); i++ {
 		if i > 0 && chars[i] == '.' && chars[i-1] != '\\' {
-			segments = append(segments, string(chars[prevIdx:i]))
+			segment := string(chars[prevIdx:i])
+			segments = append(segments, strings.ReplaceAll(segment, "\\.", "."))
 			prevIdx = i + 1
 		}
 	}
-	segments = append(segments, string(chars[prevIdx:]))
+	segment := string(chars[prevIdx:])
+	segments = append(segments, strings.ReplaceAll(segment, "\\.", "."))
 	return segments
 }

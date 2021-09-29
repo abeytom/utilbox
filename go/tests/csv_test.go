@@ -255,6 +255,60 @@ func TestCSVColGroupAndSort(t *testing.T) {
 
 }
 
+func TestCsvHeader(t *testing.T) {
+	//dont print header
+	fpath := path.Join(getCurrentDir(t), "topics.txt")
+	cmd := fmt.Sprintf("cat %v | csv row[17:18] -outhead", fpath)
+	lines := execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 2)
+	assertStringEquals(lines[0], "topic3,0,26984839,26984839,0,consumer-21-2296df7b-b059-4748-9d11-3c6a8a147be1/10.9.27.3,consumer-21")
+	assertStringEquals(lines[1], "")
+
+	fpath = path.Join(getCurrentDir(t), "topics_nohead.txt")
+	cmd = fmt.Sprintf("cat %v | csv -inhead", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 4)
+	assertStringEquals(lines[0], "topic2,1,33,33,0,consumer-1-4d78daa5-13ff-4535-b965-aadc80bcd88e/10.9.27.3,consumer-1")
+	assertStringEquals(lines[1], "topic2,2,21,21,0,consumer-2-ebe5eadf-8712-4b84-8951-afc00117e325/10.9.27.3,consumer-2")
+	assertStringEquals(lines[2], "topic2,3,30,30,0,consumer-2-ebe5eadf-8712-4b84-8951-afc00117e325/10.9.27.3,consumer-2")
+	assertStringEquals(lines[3], "")
+
+	cmd = fmt.Sprintf("cat %v | csv -inhead head[topic,part,in,out,lag,client,consumer]", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 5)
+	assertStringEquals(lines[0], "topic,part,in,out,lag,client,consumer")
+	assertStringEquals(lines[1], "topic2,1,33,33,0,consumer-1-4d78daa5-13ff-4535-b965-aadc80bcd88e/10.9.27.3,consumer-1")
+	assertStringEquals(lines[2], "topic2,2,21,21,0,consumer-2-ebe5eadf-8712-4b84-8951-afc00117e325/10.9.27.3,consumer-2")
+	assertStringEquals(lines[3], "topic2,3,30,30,0,consumer-2-ebe5eadf-8712-4b84-8951-afc00117e325/10.9.27.3,consumer-2")
+	assertStringEquals(lines[4], "")
+
+	//default with no header
+	cmd = fmt.Sprintf("cat %v | csv -inhead col[0,2,3,4] group[0]", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 2)
+	assertStringEquals(lines[0], "topic2,84,84,0")
+	assertStringEquals(lines[1], "")
+
+	//explicit headers
+	cmd = fmt.Sprintf("cat %v | csv -inhead col[0,2,3,4] group[0] head[topic,in,out,lag]", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 3)
+	assertStringEquals(lines[0], "topic,in,out,lag")
+	assertStringEquals(lines[1], "topic2,84,84,0")
+	assertStringEquals(lines[2], "")
+
+	//incorrect usage, but expected
+	cmd = fmt.Sprintf("cat %v | csv -inhead col[0,2,3,4] group[0] head[topic,in,out,lag] -outhead", fpath)
+	lines = execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 2)
+	assertStringEquals(lines[0], "topic2,84,84,0")
+	assertStringEquals(lines[1], "")
+
+}
+
+//todo nohead and -head combinations
+//todo json keys with \.
+
 type TopicL3 struct {
 	Topic string   `json:"TOPIC"`
 	Hosts []HostL3 `json:"HOSTs"`

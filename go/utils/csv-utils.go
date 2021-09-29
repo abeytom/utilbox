@@ -45,6 +45,8 @@ type CsvFormat struct {
 	OutputDef    *OutputDef
 	SortDef      *SortDef
 	HeaderDef    *HeaderDef
+	NoHeaderOut  bool
+	NoHeaderIn   bool
 	CalcDefs     []CalcDef
 	KeyDef       *HeaderDef
 }
@@ -151,12 +153,21 @@ func parseCsvArgs(args []string) *CsvFormat {
 			processOutputArgs(arg, csvFmt)
 		} else if strings.HasPrefix(arg, "head") {
 			csvFmt.HeaderDef = extractHeaderDef(arg)
+		} else if strings.HasPrefix(arg, "-inhead") {
+			csvFmt.NoHeaderIn = true
+		} else if strings.HasPrefix(arg, "-outhead") {
+			csvFmt.NoHeaderOut = true
 		} else if strings.HasPrefix(arg, "calc") {
 			extractCalcDef(arg, csvFmt)
 		} else if strings.HasPrefix(arg, "keys") {
 			def := &HeaderDef{}
 			def.Fields = common.ParseIndexStr(arg)
 			csvFmt.KeyDef = def
+		}
+	}
+	if csvFmt.NoHeaderIn {
+		if csvFmt.HeaderDef == nil || len(csvFmt.HeaderDef.Fields) == 0 {
+			csvFmt.NoHeaderOut = true
 		}
 	}
 	csvFmt.HasWholeOpr = hasWholeOpr(csvFmt)
@@ -187,41 +198,6 @@ func processLines(csvFmt *CsvFormat, lines [][]string, dataHeaders []string) {
 	}
 	data := applyGroupBy(csvFmt, lines, dataHeaders)
 	processOutput(csvFmt, data)
-
-	//dataRows = applyCalcAll(csvFmt, dataRows)
-	//if csvFmt.SortDef != nil {
-	//	dataRows = convertAndApplySort(csvFmt, dataRows)
-	//}
-	//
-	//if csvFmt.MapRed != nil {
-	//	if csvFmt.MapRed.ColIndices != nil {
-	//
-	//	} else if csvFmt.MapRed.Sum == "row" {
-	//		applyRowSum(csvFmt, lines, inHeaders)
-	//	} else {
-	//		applyColSum(csvFmt, lines, inHeaders)
-	//	}
-	//} else {
-	//	dataRows := toDataRows(lines)
-	//
-	//	if csvFmt.IsLMerge {
-	//		processLMergeOutput(csvFmt, dataRows)
-	//	} else if csvFmt.OutputDef != nil {
-	//		def := csvFmt.OutputDef
-	//		if def.Type == "json" {
-	//			csvFmt.OutputDef.Levels = 0
-	//			headers := getFinalHeaders(csvFmt, inHeaders)
-	//			processJsonOutput(dataRows, csvFmt, headers, 0)
-	//		} else if def.Type == "table" {
-	//			headers := getFinalHeaders(csvFmt, inHeaders)
-	//			processTableOutput(dataRows, csvFmt, headers)
-	//		} else {
-	//			printLines(csvFmt, processor, dataRows)
-	//		}
-	//	} else {
-	//		printLines(csvFmt, processor, dataRows)
-	//	}
-	//}
 }
 
 type DataRows struct {
@@ -261,7 +237,9 @@ func processOutput(csvFmt *CsvFormat, data *DataRows) {
 
 func processCsvOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 	writer := NewCsvWriter(csvFmt)
-	writer.WriteRaw(headers)
+	if !csvFmt.NoHeaderOut {
+		writer.WriteRaw(headers)
+	}
 	writer.WriteAll(rows)
 	writer.Close()
 }
@@ -303,53 +281,54 @@ func processLMergeOutput(csvFmt *CsvFormat, dataRows []DataRow) {
 	fmt.Printf("%s\n", strings.Join(lines, csvFmt.LMerge))
 }
 
-func applyRowSum(csvFmt *CsvFormat, lines [][]string, inHeaders []string) {
-	writer := NewCsvWriter(csvFmt)
-	if csvFmt.HeaderDef != nil {
-		headers := getFinalHeaders(csvFmt, inHeaders)
-		header := "(" + strings.Join(headers, " + ") + ")" //fixme todo apply headers
-		writer.Write([]string{header})
-	}
-
-	for _, words := range lines {
-		var rowSum int64
-		for _, word := range words {
-			val, err := strconv.ParseInt(word, 10, 64)
-			if err != nil {
-				//fmt.Println("Cannot convert %s to number ", err)
-			} else {
-				rowSum += val
-			}
-		}
-		writer.Write([]string{strconv.FormatInt(rowSum, 10)})
-	}
-	writer.Close()
-}
-
-func applyColSum(csvFmt *CsvFormat, lines [][]string, inHeaders []string) {
-	cols := len(lines[0])
-	var row = make([]int64, cols)
-	for _, words := range lines {
-		for i, word := range words {
-			val, err := strconv.ParseInt(word, 10, 64)
-			if err != nil {
-				//fmt.Println("Cannot convert %s to number ", err)
-			} else {
-				row[i] = row[i] + val
-			}
-		}
-	}
-	writer := NewCsvWriter(csvFmt)
-	var words = make([]string, cols)
-	for i, val := range row {
-		words[i] = strconv.FormatInt(val, 10)
-	}
-	headers := getFinalHeaders(csvFmt, inHeaders)
-	writer.WriteRaw(headers)
-	//PrintHeader(inHeaders, writer)
-	writer.Write(words)
-	writer.Close()
-}
+//func applyRowSum(csvFmt *CsvFormat, lines [][]string, inHeaders []string) {
+//	writer := NewCsvWriter(csvFmt)
+//	if csvFmt.HeaderDef != nil {
+//		headers := getFinalHeaders(csvFmt, inHeaders)
+//		header := "(" + strings.Join(headers, " + ") + ")" //fixme todo apply headers
+//		writer.Write([]string{header})
+//	}
+//
+//	for _, words := range lines {
+//		var rowSum int64
+//		for _, word := range words {
+//			val, err := strconv.ParseInt(word, 10, 64)
+//			if err != nil {
+//				//fmt.Println("Cannot convert %s to number ", err)
+//			} else {
+//				rowSum += val
+//			}
+//		}
+//		writer.Write([]string{strconv.FormatInt(rowSum, 10)})
+//	}
+//	writer.Close()
+//}
+//
+//func applyColSum(csvFmt *CsvFormat, lines [][]string, inHeaders []string) {
+//	cols := len(lines[0])
+//	var row = make([]int64, cols)
+//	for _, words := range lines {
+//		for i, word := range words {
+//			val, err := strconv.ParseInt(word, 10, 64)
+//			if err != nil {
+//				//fmt.Println("Cannot convert %s to number ", err)
+//			} else {
+//				row[i] = row[i] + val
+//			}
+//		}
+//	}
+//	writer := NewCsvWriter(csvFmt)
+//	var words = make([]string, cols)
+//	for i, val := range row {
+//		words[i] = strconv.FormatInt(val, 10)
+//	}
+//	if !csvFmt.NoHeaderOut {
+//		headers := getFinalHeaders(csvFmt, inHeaders)
+//		writer.WriteRaw(headers)
+//	}
+//	writer.Write(words)
+//	writer.Close()
+//}
 
 func pickWords(words []string, indices []int) []string {
 	var vals []string
@@ -461,10 +440,12 @@ func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 	for k, v := range colWidths {
 		fmtMap[k] = "%-" + strconv.Itoa(v+3) + "s "
 	}
-	for i, header := range headers {
-		fmt.Printf(fmtMap[i], header)
+	if !csvFmt.NoHeaderOut {
+		for i, header := range headers {
+			fmt.Printf(fmtMap[i], header)
+		}
+		fmt.Println("")
 	}
-	fmt.Println("")
 	for _, row := range rows {
 		var extraCols [][]string
 		extraValCount := 0
@@ -515,6 +496,9 @@ func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 }
 
 func applyGroupByHeaders(csvFmt *CsvFormat, headers []string, keyIndices []int) []string {
+	if csvFmt.NoHeaderOut {
+		return []string{}
+	}
 	if csvFmt.HeaderDef != nil && csvFmt.HeaderDef.Fields != nil {
 		return csvFmt.HeaderDef.Fields
 	}

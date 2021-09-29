@@ -8,3 +8,5 @@ if [ ! -z "$out" ]; then
     command $out
   fi
 fi
+# clear the file
+> /tmp/utilbox_run_tmp

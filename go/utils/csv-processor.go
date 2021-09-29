@@ -28,12 +28,26 @@ func NewLineProcessor(csvFmt *CsvFormat) *LineProcessor {
 func (p *LineProcessor) processRow(supplier func() []string) {
 	csvFmt := p.csvFmt
 	if isWithInBounds(csvFmt.RowExt, p.RowIndex) {
-		if p.RowIndex == 0 {
-			words := extractCsv(supplier(), csvFmt.ColExt, nil)
-			if csvFmt.HasWholeOpr {
-				p.DataHeaders = words
+		if p.RowIndex == 0 { //fixme this is not correct, we should still print the user defined headers
+			if csvFmt.NoHeaderIn {
+				//we consider this as a line
+				words := extractCsv(supplier(), csvFmt.ColExt, csvFmt.ColFmtMap)
+				if csvFmt.HasWholeOpr {
+					p.Lines = append(p.Lines, words)
+				} else {
+					if !csvFmt.NoHeaderOut {
+						p.csvWriter.WriteRaw(getFinalHeaders(csvFmt, nil))
+					}
+					p.csvWriter.Write(words)
+				}
 			} else {
-				p.csvWriter.WriteRaw(getFinalHeaders(csvFmt, words))
+				//this is a header
+				words := extractCsv(supplier(), csvFmt.ColExt, nil)
+				if csvFmt.HasWholeOpr {
+					p.DataHeaders = words
+				} else if !csvFmt.NoHeaderOut {
+					p.csvWriter.WriteRaw(getFinalHeaders(csvFmt, words))
+				}
 			}
 		} else {
 			words := extractCsv(supplier(), csvFmt.ColExt, csvFmt.ColFmtMap)
@@ -44,8 +58,10 @@ func (p *LineProcessor) processRow(supplier func() []string) {
 			}
 		}
 	} else if p.RowIndex == 0 {
-		p.DataHeaders = extractCsv(supplier(), csvFmt.ColExt, nil)
-		if !csvFmt.HasWholeOpr {
+		if !csvFmt.NoHeaderIn {
+			p.DataHeaders = extractCsv(supplier(), csvFmt.ColExt, nil)
+		}
+		if !csvFmt.HasWholeOpr && !csvFmt.NoHeaderOut {
 			p.csvWriter.WriteRaw(getFinalHeaders(csvFmt, p.DataHeaders))
 		}
 	}

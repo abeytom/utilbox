@@ -179,7 +179,7 @@ func getSecretStr(name string, namespace string) (string, error) {
 			return strings.Trim(replaced, " "), nil
 		}
 	}
-	log.Fatalf( "[error] Couldnt get the token from the secret\n", errOut)
+	log.Fatalf( "[error] Couldnt get the token from the secret [%v] \n", errOut)
 	return "", nil
 }
 
