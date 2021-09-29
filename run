@@ -1,5 +1,3 @@
-#! /bin/bash
-
 out=$(goexec "run" "$@")
 if [ ! -z "$out" ]; then
   if [[ $out == *"|"* ]]; then #not the best way but works for now

@@ -168,7 +168,7 @@ func Execute(args []string) {
 		//		}
 		//	}
 	} else if cmd == "csv" {
-		HandleCsv(args[2:])
+		CsvParse(args[2:])
 	} else {
 		fmt.Printf("ERR:UNKNOWN_COMMAND [%s]", cmd)
 	}
@@ -186,7 +186,8 @@ func printCmdList(conf *Conf) {
 		i++
 	}
 	sort.Ints(indices)
-	fmt.Println("INFO: LIST\n")
+	fmt.Println("INFO: LIST")
+	fmt.Println("")
 	for index, _ := range indices {
 		indexStr := strconv.Itoa(index)
 		key := conf.AliasIndices[indexStr]

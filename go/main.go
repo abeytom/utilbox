@@ -28,6 +28,8 @@ func main() {
 		utils.Curl(args[2:])
 	} else if args[1] == "json_parse" {
 		utils.JsonParse(args[2:])
+	} else if args[1] == "csv_parse" {
+		utils.CsvParse(args[2:])
 	} else if args[1] == "yaml_parse" {
 		utils.YamlParse(args[2:])
 	} else {

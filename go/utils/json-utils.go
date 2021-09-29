@@ -1,11 +1,12 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"errors"
 	"log"
+	"os"
 )
 
 /*
@@ -57,57 +58,28 @@ func (t *TreeNode) FullKey() string {
 	return appendKey(t.Parent.FullKey(), t.Key)
 }
 
-func YamlParse(args []string) {
-	filePath := args[0]
-
-	jsonBytes, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Fatalf("Cannot read the file %v, the error is %v", filePath, err)
-	}
-	x := bytes.TrimLeft(jsonBytes, " \t\r\n")
-	isArray := len(x) > 0 && x[0] == '-'
-	var array []map[string]interface{}
-	if isArray {
-		err := yaml.Unmarshal(jsonBytes, &array)
-		if err != nil {
-			log.Printf("Error while marshalling YAML into array. The error is [%v]\n", err)
+func readStdIn() []byte {
+	stat, _ := os.Stdin.Stat()
+	newLineByte := []byte("\n")[0]
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		var stdin []byte
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			stdin = append(stdin, scanner.Bytes()...)
+			stdin = append(stdin, newLineByte)
 		}
+		if err := scanner.Err(); err != nil {
+			log.Fatal(err)
+		}
+		return stdin
 	} else {
-		var jsonMap map[interface{}]interface{}
-		err := yaml.Unmarshal(jsonBytes, &jsonMap)
-		if err != nil {
-			log.Printf("Error while marshalling YAML into map. The error is [%v]\n", err)
-		}
-		//array = append(array, jsonMap)
-	}
-	csvFmt := parseCsvArgs(args)
-	if csvFmt.KeyDef != nil {
-		if len(csvFmt.KeyDef.Fields) == 0 {
-			keys := JsonKeys(array)
-			for _, key := range keys {
-				fmt.Printf("%v\n", key.Key)
-			}
-		} else {
-			keys := csvFmt.KeyDef.Fields
-			rows := Flatten(array, keys)
-			processOutput(csvFmt, &DataRows{
-				DataRows:     rows,
-				Headers:      keys,
-				GroupByCount: 0,
-				Converted:    false,
-			})
-		}
+		log.Fatal(errors.New("there is no data to read from STDIN"))
+		return nil
 	}
 }
 
 func JsonParse(args []string) {
-	filePath := args[0]
-
-	csvFmt := parseCsvArgs(args)
-	jsonBytes, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Fatalf("Cannot read the file %v, the error is %v", filePath, err)
-	}
+	jsonBytes := readStdIn()
 	x := bytes.TrimLeft(jsonBytes, " \t\r\n")
 	isArray := len(x) > 0 && x[0] == '['
 	isObject := len(x) > 0 && x[0] == '{'
@@ -117,18 +89,19 @@ func JsonParse(args []string) {
 		var jsonMap map[string]interface{}
 		err := json.Unmarshal(jsonBytes, &jsonMap)
 		if err != nil {
-			log.Printf("Error while marshalling json into map %v\n", err)
+			log.Printf("Error while marshalling json into map. %v\n", err)
 		}
 		array = append(array, jsonMap)
 	} else if isArray {
 		err := json.Unmarshal(jsonBytes, &array)
 		if err != nil {
-			log.Printf("Error while marshalling json into array %v\n", err)
+			log.Printf("Error while marshalling json into array. %v\n", err)
 		}
 	} else {
 		log.Fatalf("Unsupported JSON %s", string(jsonBytes))
 	}
 
+	csvFmt := parseCsvArgs(args)
 	if csvFmt.KeyDef != nil {
 		if len(csvFmt.KeyDef.Fields) == 0 {
 			keys := JsonKeys(array)

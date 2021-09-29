@@ -1,5 +1,3 @@
-#! /bin/bash
-
 CWD=$PWD
 until [ $CWD == / ]; do
     GRADLEW=$CWD/gradlew

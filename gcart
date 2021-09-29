@@ -1,3 +1,1 @@
-#!/bin/bash
-
 goexec 'gcloud_art' "$@"

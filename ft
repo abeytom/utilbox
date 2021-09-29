@@ -1,4 +1,2 @@
-#!/bin/bash
-
 out=$(goexec "fmt" "$@")
 echo $out

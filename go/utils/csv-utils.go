@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Knetic/govaluate"
 	"github.com/abeytom/utilbox/common"
@@ -84,65 +85,24 @@ type OutputData struct {
 	GroupByCount int
 }
 
-func HandleCsv(args []string) {
-	//csv [delimiter]  [merge] [row_def] [col_def]
-
-	//delimiter -> space(default) tab comma
-	//merge -> default false
-	//row_def -> row[0:] (default), row[1] row[2:3]
-	//col_def -> col[0:] (default), col[1] col[2:3]
-
-	// kc get pods | csv space row[1:] col[0]
-	// kc get pods | csv space  col[0] -> gets all rows
-	// kc get pods | csv space -> all lines will be merged
-	// kc get pods | csv space merge ->
-	//fmt.Printf("The args are %s\n", args)
-
-	//kc get svc | csv row[1:] col[0-3,5] fmt#c4#split:/#merge:-#col[0,1] fmt#c2#split:.#merge:: merge:'|' lmerge:===
-	//kc get svc | csv row[1:] col[0,4] merge:: fmt.c0.pfx:'curl http://'  fmt.c4.split:/.col[0].sfx:'/actuator/health' wrap:dquote
-	// kc get pods | csv row[1:] col[0] fmt#c0#split:-#:-#ncol[-1,-2]
-	// kc get svc | csv row[1:] | csv split:csv merge:'|' lmerge:'     >>>>>     '
-	//todo filter row
-	//todo sum , sort, group
-	//todo replace-chars
-
-	//cat ~/tmp/topics.txt | csv row[1:] col[2,3,4,6] mr#group[3]
-	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group[0]#sort[1]
-	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group[0]#sort[1]:desc
-	//cat ~/tmp/topics.txt | csv row[1:] col[6,2,3,4] mr#group[0]#sort[0]:asc#sum:row
-	//cat ~/tmp/topics.txt | csv row[1:] col[2,3,4] mr#sum:row
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group[0,1]#sort[1]:asc merge:tab => 2 group by keys
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr#group[0,1]#sort[2]:desc#sum:row
-	// cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group[0,1],,sort[2] out..json..cols:topic:groups:group:in:out:lag
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group[0,1],,sort[2] out..json..cols:topic:groups:group:in:out:lag => One Group
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group[0,1],,sort[2] out..json..cols:topic:groups:group:stats:in:out:lag => 2 Level JSON
-	//cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr,,group[0:2],,sort[2]:desc out..json..fields[topic,groups,group,in,out,lag]
-	/*
-		# Chained format on the same column
-		cat ~/kdev_default_svc.txt | csv  out#csv tr#c4#split:comma#col[-1]  tr#c4#split:/#col[0] tr#c4#split::#col[-1]
-		# merged string fields
-		cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr..group[0]..sort[2]:desc out..json
-		cat ~/tmp/topics.txt | csv row[1:] col[0,6,2,3,4] mr..group[0]..sort[2]:desc out..json..levels:1
-	*/
-
-	filePath := args[0]
-	csvFmt := parseCsvArgs(args)
-
-	//fmt.Printf("[%+v] \n", csvFmt)
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		panic("Cannot read the file " + filePath)
+func CsvParse(args []string) {
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) != 0 {
+		log.Fatal(errors.New("there is no data to read from STDIN"))
+		return
 	}
-	defer file.Close()
-
+	csvFmt := parseCsvArgs(args)
 	if csvFmt.Split == "csv" {
-		processCsv(file, csvFmt)
+		processCsv(csvFmt)
 	} else {
-		scanner := bufio.NewScanner(file)
+		scanner := bufio.NewScanner(os.Stdin)
 		processor := NewLineProcessor(csvFmt)
+		useFields := csvFmt.Split == "space+"
 		for scanner.Scan() {
 			processor.processRow(func() []string {
+				if useFields {
+					return strings.Fields(scanner.Text())
+				}
 				return strings.Split(scanner.Text(), csvFmt.Split)
 			})
 		}
@@ -155,14 +115,14 @@ func parseCsvArgs(args []string) *CsvFormat {
 	csvFmt := &CsvFormat{
 		ColExt:   &common.IntRange{},
 		RowExt:   &common.IntRange{},
-		Split:    " ",
+		Split:    "space+",
 		Merge:    "csv",
 		LMerge:   ",",
 		Wrap:     "",
 		IsLMerge: false,
 	}
 
-	for _, arg := range args[1:] {
+	for _, arg := range args {
 		if strings.HasPrefix(arg, "lmerge") {
 			csvFmt.IsLMerge = true
 			if arg != "lmerge" {
@@ -198,17 +158,14 @@ func parseCsvArgs(args []string) *CsvFormat {
 			def.Fields = common.ParseIndexStr(arg)
 			csvFmt.KeyDef = def
 		}
-		//else if strings.HasPrefix(arg, "mr") {
-		//	processMrArguments(arg, csvFmt)
-		//}
 	}
 	csvFmt.HasWholeOpr = hasWholeOpr(csvFmt)
 	csvFmt.HasMrReducer = hasMrReducer(csvFmt.MapRed)
 	return csvFmt
 }
 
-func processCsv(file *os.File, csvFmt *CsvFormat) {
-	reader := csv.NewReader(bufio.NewReader(file))
+func processCsv(csvFmt *CsvFormat) {
+	reader := csv.NewReader(bufio.NewReader(os.Stdin))
 	processor := NewLineProcessor(csvFmt)
 	for {
 		words, _ := reader.Read()
