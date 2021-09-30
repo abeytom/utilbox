@@ -28,7 +28,7 @@ func NewLineProcessor(csvFmt *CsvFormat) *LineProcessor {
 func (p *LineProcessor) processRow(supplier func() []string) {
 	csvFmt := p.csvFmt
 	if isWithInBounds(csvFmt.RowExt, p.RowIndex) {
-		if p.RowIndex == 0 { //fixme this is not correct, we should still print the user defined headers
+		if p.RowIndex == 0 {
 			if csvFmt.NoHeaderIn {
 				//we consider this as a line
 				words := extractCsv(supplier(), csvFmt.ColExt, csvFmt.ColFmtMap)

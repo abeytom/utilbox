@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/Knetic/govaluate"
 	"github.com/abeytom/utilbox/common"
+	"io"
 	"log"
 	"os"
 	"sort"
@@ -229,7 +230,7 @@ func processOutput(csvFmt *CsvFormat, data *DataRows) {
 	} else if def.Type == "json" {
 		processJsonOutput(dataRows, csvFmt, headers, data.GroupByCount)
 	} else if def.Type == "table" {
-		processTableOutput(dataRows, csvFmt, headers)
+		ProcessTableOutput(dataRows, csvFmt, headers, os.Stdout)
 	} else {
 		processCsvOutput(dataRows, csvFmt, headers)
 	}
@@ -391,7 +392,7 @@ func applyGroupBy(csvFmt *CsvFormat, lines [][]string, defHeaders []string) *Dat
 	//	if csvFmt.OutputDef.Type == "json" {
 	//		processJsonOutput(dataRows, csvFmt, headers, len(keyIndices))
 	//	} else if csvFmt.OutputDef.Type == "table" {
-	//		processTableOutput(dataRows, csvFmt, headers)
+	//		ProcessTableOutput(dataRows, csvFmt, headers)
 	//	} else {
 	//		printCsv(csvFmt, headers, dataRows)
 	//	}
@@ -409,7 +410,7 @@ func printCsv(csvFmt *CsvFormat, headers []string, dataRows []DataRow) {
 	writer.Close()
 }
 
-func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
+func ProcessTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, writer io.Writer) {
 	colWidths := make(map[int]int)
 	for _, row := range rows {
 		for i, col := range row.Cols {
@@ -442,9 +443,9 @@ func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 	}
 	if !csvFmt.NoHeaderOut {
 		for i, header := range headers {
-			fmt.Printf(fmtMap[i], header)
+			fmt.Fprintf(writer,fmtMap[i], header)
 		}
-		fmt.Println("")
+		fmt.Fprintln(writer,"")
 	}
 	for _, row := range rows {
 		var extraCols [][]string
@@ -454,11 +455,11 @@ func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 			case *common.StringSet:
 				vals := col.(*common.StringSet).Values()
 				if len(vals) == 0 {
-					fmt.Printf(fmtMap[i], "")
+					fmt.Fprintf(writer,fmtMap[i], "")
 				} else if len(vals) == 1 {
-					fmt.Printf(fmtMap[i], common.ToString(vals[0]))
+					fmt.Fprintf(writer,fmtMap[i], common.ToString(vals[0]))
 				} else {
-					fmt.Printf(fmtMap[i], common.ToString(vals[0]))
+					fmt.Fprintf(writer,fmtMap[i], common.ToString(vals[0]))
 
 					extraCols = make([][]string, len(row.Cols))
 					extraColVals := make([]string, len(vals)-1)
@@ -472,25 +473,24 @@ func processTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 				}
 			default:
 				if col != nil {
-					fmt.Printf(fmtMap[i], common.ToString(col))
+					fmt.Fprintf(writer,fmtMap[i], common.ToString(col))
 				} else {
-					fmt.Printf(fmtMap[i], "")
+					fmt.Fprintf(writer,fmtMap[i], "")
 				}
 			}
 		}
-		fmt.Println("")
+		fmt.Fprintln(writer,"")
 		if len(extraCols) > 0 {
 			for i := 0; i < extraValCount; i++ {
 				for j, vals := range extraCols {
 					if len(vals) <= i {
-						fmt.Printf(fmtMap[j], "")
+						fmt.Fprintf(writer,fmtMap[j], "")
 					} else {
-						fmt.Printf(fmtMap[j], vals[i])
+						fmt.Fprintf(writer,fmtMap[j], vals[i])
 					}
 				}
-				fmt.Println("")
+				fmt.Fprintln(writer,"")
 			}
-			//fmt.Println("")
 		}
 	}
 }

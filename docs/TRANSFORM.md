@@ -204,7 +204,7 @@ The `special_str` options are same as `split`
 
 ## 2 JSON
 
-Transforms JSON input
+Transforms JSON input. The command is `jp` i.e _JSONProcessor_
 
 ### Usage
 
@@ -236,4 +236,40 @@ jp keys            => List the keys
 
 jp keys[key1,key2] => selects the values based on keys into a table 
 ```
-Note: For _grouping_ pipe the `json` output into `csv` and transform it further. 
+Note: For _grouping_ pipe the `jp` output into `csv` and transform it further. 
+
+## 3 YAML
+
+Transforms Yaml input. The command is `yp` i.e _YamlProcessor_. Flags and behavior are identical to the JSON variant
+
+### Usage
+
+```
+# PRINTS THE YAML KEYS
+kubectl get pods -o yaml | yp keys
+
+# GENERATE DATA BASED ON THE SELECTED KEYS 
+kubectl get pods -o yaml | yp keys[items.metadata.name,items.metadata.namespace,items.status.hostIP,items.status.podIP]
+```
+
+### Flags
+
+- `keys`
+- `out`
+- `head`
+- `-outhead`
+- `sort`
+- `calc`
+
+### Flag Usage
+
+Refer to CSV section for common flag usage
+
+#### keys
+
+```
+yp keys            => List the keys
+
+yp keys[key1,key2] => selects the values based on keys into a table 
+```
+Note: For _grouping_ pipe the `yp` output into `csv` and transform it further. 

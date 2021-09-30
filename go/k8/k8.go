@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/abeytom/utilbox/utils"
 	"gopkg.in/yaml.v2"
 	"log"
 	"os"
@@ -167,7 +168,7 @@ func getSecretStr(name string, namespace string) (string, error) {
 	args := []string{"-n", namespace, "describe", "secret", name}
 	secretStr, errOut, err := ExecuteCommand("kubectl", args...)
 	if err != nil || secretStr == "" {
-		log.Fatalf( "[error] The get pods returned error. %s\n", errOut)
+		log.Fatalf("[error] The get pods returned error. %s\n", errOut)
 		return "", nil
 	}
 	secretListStr := string(secretStr[:])
@@ -179,7 +180,7 @@ func getSecretStr(name string, namespace string) (string, error) {
 			return strings.Trim(replaced, " "), nil
 		}
 	}
-	log.Fatalf( "[error] Couldnt get the token from the secret [%v] \n", errOut)
+	log.Fatalf("[error] Couldnt get the token from the secret [%v] \n", errOut)
 	return "", nil
 }
 
@@ -187,7 +188,7 @@ func getSecretByName(namespace string, nameMatch string, matchIndex int) (string
 	args := []string{"-n", namespace, "get", "secret", nameMatch, "-o", "yaml"}
 	secretStr, errOut, err := ExecuteCommand("kubectl", args...)
 	if err != nil || secretStr == "" {
-		log.Fatalf( "[error] The get secrets returned error. %s\n", errOut)
+		log.Fatalf("[error] The get secrets returned error. %s\n", errOut)
 		return "", nil
 	}
 	yamlMap := make(map[interface{}]interface{})
@@ -283,10 +284,14 @@ func getPodByName(namespace string, podMatch string, matchIndex int, runningOnly
 		}
 		fmt.Fprintf(os.Stderr, "[error] Multiple Matches found for namespace %s with name prefix %s\n\n", namespace, podMatch)
 		matchedPods = *sortPods(&matchedPods)
+		rows := make([]utils.DataRow, len(matchedPods))
 		for i, mp := range matchedPods {
-			//todo table based formatting
-			fmt.Fprintf(os.Stderr, "%d. %s\t%s\t%s\t%s\t%s\n", i, mp.Name, mp.Ready, mp.Status, mp.Restarts, mp.AgeStr)
+			rows[i] = utils.DataRow{
+				Cols: []interface{}{i, mp.Name, mp.Ready, mp.Status, mp.Restarts, mp.AgeStr},
+			}
 		}
+		headers := []string{"#", "NAME", "READY", "STATUS", "RESTARTS", "AGE"}
+		utils.ProcessTableOutput(rows, &utils.CsvFormat{}, headers, os.Stderr)
 		log.Fatalf("Exiting")
 	} else {
 		return matchedPods[0].Name, nil
