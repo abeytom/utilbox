@@ -120,6 +120,11 @@ func Execute(args []string) {
 			mapVals = conf.Aliases
 			printCmdList(conf)
 			return
+		} else if subCmd == "k" {
+			mapVals = make(map[string]string)
+			for key, _ := range conf.Tokens {
+				mapVals[key] = ""
+			}
 		} else if subCmd == "kv" {
 			mapVals = conf.Tokens
 		} else { //catch all
@@ -128,7 +133,12 @@ func Execute(args []string) {
 		keys := *getSortedMapKeys(&mapVals)
 		fmt.Printf("INFO: LIST \n\n")
 		for index, k := range keys {
-			fmt.Printf("%d. %s=%s\n", index+1, k, mapVals[k])
+			val := mapVals[k]
+			if val != "" {
+				fmt.Printf("%d. %s=%s\n", index+1, k, val)
+			} else {
+				fmt.Printf("%d. %s\n", index+1, k)
+			}
 		}
 		fmt.Printf("\n")
 	} else if cmd == "exec" {
@@ -152,21 +162,6 @@ func Execute(args []string) {
 				fmt.Fprintf(os.Stderr, "Alias or Index [%v] not found\n", alias)
 			}
 		}
-		//} else if cmd == "path" {
-		//	// This and get works similar for most part.
-		//	conf := getConf(baseDir)
-		//	paths := conf.Paths
-		//	pathAlias := args[2]
-		//	if path, ok := paths[pathAlias]; ok {
-		//		fmt.Printf("%s", getSubPaths(path, args[3:]))
-		//	} else {
-		//		value, errStr := lookupValueByKeyIndex(pathAlias, paths, "PATH")
-		//		if errStr != "" {
-		//			fmt.Print(errStr)
-		//		} else {
-		//			fmt.Printf("%s", getSubPaths(value, args[3:]))
-		//		}
-		//	}
 	} else if cmd == "csv" {
 		CsvParse(args[2:])
 	} else {
