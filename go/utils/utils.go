@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -40,16 +39,7 @@ open `bk get istore` [open in the pathAlias in finder]
 bk pbc path alias | bk pbc cmd alias | bk pbc alias
 */
 func Execute(args []string) {
-	baseDir := os.Getenv("UTILBOX_PATH")
-	if baseDir == "" {
-		user, err := user.Current()
-		if err != nil {
-			panic(err)
-		}
-		baseDir = filepath.Join(user.HomeDir, ".config/utilbox")
-		//fmt.Printf("ERR:ENV_VAR_NOT_SET [CMDLINE_UTILS_PATH]")
-		//os.Exit(1)
-	}
+	baseDir := getBaseDir()
 	cmd := args[1]
 	if cmd == "add" {
 		subCmd := args[2]
@@ -183,7 +173,7 @@ func printCmdList(conf *Conf) {
 	sort.Ints(indices)
 	fmt.Println("INFO: LIST")
 	fmt.Println("")
-	for index, _ := range indices {
+	for _, index := range indices {
 		indexStr := strconv.Itoa(index)
 		key := conf.AliasIndices[indexStr]
 		value := conf.Aliases[key]
@@ -316,8 +306,10 @@ func getConf(baseDir string) *Conf {
 
 func createConfJson(baseDir string) {
 	conf := Conf{
-		Paths:   map[string]string{},
-		Aliases: map[string]string{},
+		Paths:        map[string]string{},
+		Aliases:      map[string]string{},
+		AliasIndices: map[string]string{},
+		Tokens:       map[string]string{},
 	}
 	writeJson(&conf, baseDir)
 }
@@ -334,5 +326,5 @@ func mergeMaps(map1 map[string]string, map2 map[string]string) map[string]string
 }
 
 func getJsonFilePath(baseDir string) string {
-	return strings.Join([]string{baseDir, "conf/conf.json"}, "/")
+	return strings.Join([]string{baseDir, "conf.json"}, "/")
 }

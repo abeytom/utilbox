@@ -43,7 +43,7 @@ func getBaseDir() string {
 		if err != nil {
 			panic(err)
 		}
-		baseDir = filepath.Join(user.HomeDir, ".utilbox")
+		baseDir = filepath.Join(user.HomeDir, ".config/utilbox")
 	}
 	return baseDir
 }
