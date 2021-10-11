@@ -46,7 +46,7 @@ func Execute(args []string) {
 		if err != nil {
 			panic(err)
 		}
-		baseDir = filepath.Join(user.HomeDir, ".utilbox")
+		baseDir = filepath.Join(user.HomeDir, ".config/utilbox")
 		//fmt.Printf("ERR:ENV_VAR_NOT_SET [CMDLINE_UTILS_PATH]")
 		//os.Exit(1)
 	}
