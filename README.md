@@ -96,8 +96,32 @@ kc logt pod-name* [:index]                  # start a tail and follow with last 
 kc logs[logt] -1                                # -1 will match the latest pod
 
 kc ssh pod-name* [:index] [-- bash|sh]      # use wildcards in name (:index -> :0, :2 if there are multiple matches
- 
 ``` 
+
+### BASH PROMPT
+```
+get_base_dir_prompt(){
+    base1="${PWD##*/}"
+    dir1="${PWD%/*}"
+    PROMPT_STR="${dir1##*/}/$base1"
+    echo $PROMPT_STR
+}
+
+get_k8ns_prompt(){
+    PROMPT_STR=""
+    if [[ ! -z "${k8ns}" ]]; then
+        PROMPT_STR="(k8ns:$k8ns) (k8ctx:$(kubectl config current-context))"
+    fi
+    echo $PROMPT_STR
+}
+
+# APPEND TO EXISTING PROMPT
+PS1+="\e[0;34m\$(get_k8ns_prompt)\e[0m"
+
+# CREATE NEW PROMPT 'user@host parent/dir $k8s'
+#export PS1="\e[1;32m\u@\h\e[0m \e[0;35m\$(get_base_dir_prompt)\e[0m \e[0;34m\$(get_k8ns_prompt)\e[0m $ "
+
+```
 
 # Gcloud Utils [WIP]
 
