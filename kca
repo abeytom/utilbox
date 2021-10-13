@@ -1,15 +1,13 @@
-basedir=$(dirname "$0")
-cmdfile="$basedir/.tmp/tmp_cmd"
-mkdir -p "$basedir/.tmp"
-: >"$cmdfile"
-
-goexec "k8" "$cmdfile" "$@" "--all-namespaces"
-
-cmd=$(cat "$cmdfile")
-
-if [[ ! -z "$cmd" ]]; then
-  #  echo "[info] running the commnd $cmd"
-  command $cmd
+out=$(goexec "k8" "$@" "--all-namespaces")
+statusOut=$?
+if [ $statusOut -ne 0 ]; then
+  echo "[error] The COMMAND \"kc $@\" exited with $statusOut" >/dev/stderr
+  echo "<<error>>" # I dont know a better way
+  exit 1
+elif [ ! -z "$out" ]; then
+  command $out
+  status=$?
+  if [ $status -ne 0 ]; then
+    echo "The COMMAND \"$out\" exited with code $status" >/dev/stderr
+  fi
 fi
-
-#perl -lne '/EXEC{(.*?)}/ && print $1'

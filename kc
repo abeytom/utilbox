@@ -2,7 +2,6 @@
 ### PROBLEM #####
 ### if the sub command ie. `subcommand` exits with an error how do we fail the parent command ###
 
-
 out=$(goexec "k8" "$@")
 statusOut=$?
 if [ $statusOut -ne 0 ]; then
