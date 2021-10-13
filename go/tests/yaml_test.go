@@ -93,3 +93,14 @@ func TestYamlComplexObjects(t *testing.T) {
 	//cmd := fmt.Sprintf("cat %v | yp  keys[items.status.phase,items.status.containerStatuses,items.status.podIPs]  out..json", podsJson)
 }
 
+func TestYamlMultipleKeyBranch(t *testing.T){
+	podsJson := path.Join(getCurrentDir(t), "custom.yml")
+
+	cmd := fmt.Sprintf("cat %v | yp keys[pods.name,pods.containers.name] out..table", podsJson)
+	lines := execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 4)
+	assertStringEquals(lines[0], "pods.name    pods.containers.name    ")
+	assertStringEquals(lines[1], "pod1         container1              ")
+	assertStringEquals(lines[2], "             container2              ")
+}
+

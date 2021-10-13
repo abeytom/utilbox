@@ -1,0 +1,5 @@
+pods:
+  name: pod1
+  containers:
+    - name: container1
+    - name: container2

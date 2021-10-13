@@ -130,7 +130,6 @@ func Flatten(array []map[string]interface{}, keys []string) []DataRow {
 		segments := splitKey(key)
 		root.Add(segments)
 	}
-
 	var rows []DataRow
 	for _, json := range array {
 		result := make(map[string][]interface{})
@@ -264,7 +263,9 @@ func flatten(json map[string]interface{}, root *TreeNode, depth int, inResult ma
 	if depth > 0 {
 		if depth > 1 {
 			for k, v := range result {
-				inResult[k] = v
+				for _, val := range v {
+					appendResult(k, val, inResult)
+				}
 			}
 		}
 		if depth == 1 {

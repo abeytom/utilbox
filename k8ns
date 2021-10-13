@@ -2,5 +2,6 @@ if [ -z "$1" ]
   then
     echo "Usage . k8ns <ns> i.e (dot) k8ns <ns>"
 else
+  type setTabTitle > /dev/null 2>&1 && setTabTitle "(k8ns:$1)"
   export k8ns=$1
 fi

@@ -204,7 +204,9 @@ func flattenYaml2(json map[interface{}]interface{}, root *TreeNode, depth int, i
 	if depth > 0 {
 		if depth > 1 {
 			for k, v := range result {
-				inResult[k] = v
+				for _, val := range v {
+					appendYamlResult(fmt.Sprintf("%v",k), val, inResult)
+				}
 			}
 		}
 		if depth == 1 {

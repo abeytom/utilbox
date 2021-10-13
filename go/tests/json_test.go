@@ -94,6 +94,19 @@ func TestJsonComplexObjects(t *testing.T) {
 	assertStringEquals(lines[2], "                      image: docker.io/library/nginx:latest                                                                                              ")
 }
 
+func TestJsonMultipleKeyBranch(t *testing.T){
+	podsJson := path.Join(getCurrentDir(t), "custom.json")
+
+	cmd := fmt.Sprintf("cat %v | jp keys[pods.name,pods.containers.name] out..table", podsJson)
+	lines := execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 6)
+	assertStringEquals(lines[0], "pods.name    pods.containers.name    ")
+	assertStringEquals(lines[1], "pod1         container1              ")
+	assertStringEquals(lines[2], "             container2              ")
+	assertStringEquals(lines[3], "pod2         container3              ")
+	assertStringEquals(lines[4], "             container4              ")
+}
+
 
 func assertStringEquals(actual string, expected string) {
 	if actual != expected {

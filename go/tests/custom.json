@@ -1,0 +1,25 @@
+{
+  "pods": [
+    {
+      "name": "pod1",
+      "containers": [
+        {
+          "name": "container1"
+        },
+        {
+          "name": "container2"
+        }
+      ]
+    },{
+      "name": "pod2",
+      "containers": [
+        {
+          "name": "container3"
+        },
+        {
+          "name": "container4"
+        }
+      ]
+    }
+  ]
+}
