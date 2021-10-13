@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/Knetic/govaluate"
 	"github.com/abeytom/utilbox/common"
+	"gopkg.in/yaml.v2"
 	"io"
 	"log"
 	"os"
@@ -411,6 +412,23 @@ func printCsv(csvFmt *CsvFormat, headers []string, dataRows []DataRow) {
 }
 
 func ProcessTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, writer io.Writer) {
+	//convert the object data model into yaml first
+	for _, row := range rows {
+		for i, col := range row.Cols {
+			switch col.(type) {
+			case map[string]interface{},map[interface{}]interface{}, []interface{}:
+				bytes, err := yaml.Marshal(col)
+				if err != nil {
+					row.Cols[i] = fmt.Sprintf("%v", col)
+				} else {
+					yamlStr := string(bytes)
+					lines := strings.Split(yamlStr, "\n")
+					row.Cols[i] = common.NewOrderedStringSet(lines)
+				}
+			}
+		}
+	}
+
 	colWidths := make(map[int]int)
 	for _, row := range rows {
 		for i, col := range row.Cols {
@@ -443,25 +461,24 @@ func ProcessTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, wri
 	}
 	if !csvFmt.NoHeaderOut {
 		for i, header := range headers {
-			fmt.Fprintf(writer,fmtMap[i], header)
+			fmt.Fprintf(writer, fmtMap[i], header)
 		}
-		fmt.Fprintln(writer,"")
+		fmt.Fprintln(writer, "")
 	}
+
 	for _, row := range rows {
-		var extraCols [][]string
+		extraCols := make([][]string, len(row.Cols))
 		extraValCount := 0
 		for i, col := range row.Cols {
 			switch col.(type) {
 			case *common.StringSet:
 				vals := col.(*common.StringSet).Values()
 				if len(vals) == 0 {
-					fmt.Fprintf(writer,fmtMap[i], "")
+					fmt.Fprintf(writer, fmtMap[i], "")
 				} else if len(vals) == 1 {
-					fmt.Fprintf(writer,fmtMap[i], common.ToString(vals[0]))
+					fmt.Fprintf(writer, fmtMap[i], common.ToString(vals[0]))
 				} else {
-					fmt.Fprintf(writer,fmtMap[i], common.ToString(vals[0]))
-
-					extraCols = make([][]string, len(row.Cols))
+					fmt.Fprintf(writer, fmtMap[i], common.ToString(vals[0]))
 					extraColVals := make([]string, len(vals)-1)
 					for i := 1; i < len(vals); i++ {
 						extraColVals[i-1] = vals[i]
@@ -473,23 +490,23 @@ func ProcessTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, wri
 				}
 			default:
 				if col != nil {
-					fmt.Fprintf(writer,fmtMap[i], common.ToString(col))
+					fmt.Fprintf(writer, fmtMap[i], common.ToString(col))
 				} else {
-					fmt.Fprintf(writer,fmtMap[i], "")
+					fmt.Fprintf(writer, fmtMap[i], "")
 				}
 			}
 		}
-		fmt.Fprintln(writer,"")
+		fmt.Fprintln(writer, "")
 		if len(extraCols) > 0 {
 			for i := 0; i < extraValCount; i++ {
 				for j, vals := range extraCols {
 					if len(vals) <= i {
-						fmt.Fprintf(writer,fmtMap[j], "")
+						fmt.Fprintf(writer, fmtMap[j], "")
 					} else {
-						fmt.Fprintf(writer,fmtMap[j], vals[i])
+						fmt.Fprintf(writer, fmtMap[j], vals[i])
 					}
 				}
-				fmt.Fprintln(writer,"")
+				fmt.Fprintln(writer, "")
 			}
 		}
 	}

@@ -83,6 +83,18 @@ func TestJsonCount(t *testing.T) {
 	assertStringEquals(lines[3], "data-store-844b74455c,sample,192.168.1.60,10.1.151.235,1")
 }
 
+func TestJsonComplexObjects(t *testing.T) {
+	podsJson := path.Join(getCurrentDir(t), "pods.json")
+
+	cmd := fmt.Sprintf("cat %v | jp  keys[items.status.phase,items.status.containerStatuses,items.status.podIPs]  out..table", podsJson)
+	lines := execCmdGetLines(cmd)
+	assertIntEquals(len(lines), 74)
+	assertStringEquals(lines[0], "items.status.phase    items.status.containerStatuses                                                                              items.status.podIPs    ")
+	assertStringEquals(lines[1], "Running               containerID: containerd://9c69794ee3caf7dfd6bf1c51c04c2c36775afd9a114eaf1ec2a802ede6cfe077                  ip: 10.1.151.232       ")
+	assertStringEquals(lines[2], "                      image: docker.io/library/nginx:latest                                                                                              ")
+}
+
+
 func assertStringEquals(actual string, expected string) {
 	if actual != expected {
 		err := fmt.Errorf("Expected String [%v] Actual [%v]", expected, actual)

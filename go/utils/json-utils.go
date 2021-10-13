@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"reflect"
 )
 
 /*
@@ -79,7 +80,7 @@ func readStdIn() []byte {
 
 func JsonParse(args []string) {
 	jsonBytes := readStdIn()
-	if jsonBytes == nil{
+	if jsonBytes == nil {
 		log.Fatal(errors.New("there is no data to read from STDIN"))
 	}
 	x := bytes.TrimLeft(jsonBytes, " \t\r\n")
@@ -129,6 +130,7 @@ func Flatten(array []map[string]interface{}, keys []string) []DataRow {
 		segments := splitKey(key)
 		root.Add(segments)
 	}
+
 	var rows []DataRow
 	for _, json := range array {
 		result := make(map[string][]interface{})
@@ -136,6 +138,28 @@ func Flatten(array []map[string]interface{}, keys []string) []DataRow {
 		rows = processFlattenedResults(result, keys, rows)
 	}
 	return rows
+}
+
+func convertValuesToStringSet(values []interface{}) *common.StringSet {
+	comparable := true
+	set := &common.StringSet{}
+L:
+	for _, value := range values {
+		vref := reflect.ValueOf(value)
+		switch vref.Kind() {
+		case reflect.Slice:
+			comparable = false
+			break L
+		case reflect.Map:
+			comparable = false
+			break L
+		}
+		set.Add(fmt.Sprintf("%v", value))
+	}
+	if comparable {
+		return set
+	}
+	return nil
 }
 
 func processFlattenedResults(result map[string][]interface{}, keys []string, rows []DataRow) []DataRow {
@@ -147,13 +171,21 @@ func processFlattenedResults(result map[string][]interface{}, keys []string, row
 		if !exists {
 			return rows
 		}
-		set := &common.StringSet{}
-		for _, value := range values {
-			set.Add(fmt.Sprintf("%v", value))
+		size := len(values)
+		if size == 0 {
+			return rows
+		} else if size == 1 {
+			return append(rows, DataRow{Cols: []interface{}{values[0]}})
 		}
-		setVals := set.Values()
-		for _, value := range setVals {
-			rows = append(rows, DataRow{Cols: []interface{}{value}})
+		set := convertValuesToStringSet(values)
+		if set == nil {
+			for _, value := range values {
+				rows = append(rows, DataRow{Cols: []interface{}{value}})
+			}
+		} else {
+			for _, value := range set.Values() {
+				rows = append(rows, DataRow{Cols: []interface{}{value}})
+			}
 		}
 		return rows
 	}
@@ -171,11 +203,12 @@ func processFlattenedResults(result map[string][]interface{}, keys []string, row
 				} else if len(values) == 1 {
 					rowCols[i] = values[0]
 				} else if len(values) > 1 {
-					strVals := make([]string, len(values))
-					for i2, value := range values {
-						strVals[i2] = fmt.Sprintf("%v", value)
+					set := convertValuesToStringSet(values)
+					if set != nil {
+						rowCols[i] = set
+					} else {
+						rowCols[i] = values
 					}
-					rowCols[i] = common.NewStringSet(strVals)
 				} else {
 					rowCols[i] = ""
 				}
@@ -209,13 +242,21 @@ func flatten(json map[string]interface{}, root *TreeNode, depth int, inResult ma
 			for _, e := range v.([]interface{}) {
 				switch e.(type) {
 				case map[string]interface{}:
-					flatten(e.(map[string]interface{}), value, depth, result)
+					if len(value.Map) > 0 {
+						flatten(e.(map[string]interface{}), value, depth, result)
+					} else {
+						appendResult(value.FullKey(), e, result)
+					}
 				default:
 					appendResult(value.FullKey(), e, result)
 				}
 			}
 		case map[string]interface{}:
-			flatten(v.(map[string]interface{}), value, depth, result)
+			if len(value.Map) > 0 {
+				flatten(v.(map[string]interface{}), value, depth, result)
+			} else {
+				appendResult(value.FullKey(), v, result)
+			}
 		default:
 			appendResult(value.FullKey(), v, result)
 		}

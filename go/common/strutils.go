@@ -186,33 +186,49 @@ func ToString(word interface{}) string {
 
 var void struct{}
 
+//todo avoid saving keys if it is not needed
 type StringSet struct {
 	values map[string]struct{}
+	keys   []string
+	ordered bool
 }
 
 func NewStringSet(vals []string) *StringSet {
 	values := make(map[string]struct{})
 	for _, val := range vals {
 		values[val] = void
+
 	}
-	return &StringSet{values: values}
+	return &StringSet{values: values, keys: vals}
+}
+
+func NewOrderedStringSet(vals []string) *StringSet {
+	set := NewStringSet(vals)
+	set.ordered = true
+	return set
 }
 
 func (s *StringSet) Add(str string) {
 	if s.values == nil {
 		s.values = make(map[string]struct{})
 	}
-	s.values[str] = void
+	if _, exists := s.values[str]; !exists {
+		s.values[str] = void
+		s.keys = append(s.keys, str)
+	}
 }
 
 func (s *StringSet) Values() []string {
+	if s.ordered{
+		return s.keys
+	}
 	keys := make([]string, len(s.values))
 	i := 0
 	for k := range s.values {
 		keys[i] = k
 		i++
 	}
-	sort.Strings(keys) //fixme  preserve original order
+	sort.Strings(keys)
 	return keys
 }
 

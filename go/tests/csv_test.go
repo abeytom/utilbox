@@ -306,6 +306,8 @@ func TestCsvHeader(t *testing.T) {
 
 }
 
+//todo CSV output with complex objects
+
 //todo nohead and -head combinations
 //todo json keys with \.
 

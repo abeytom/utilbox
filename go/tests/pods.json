@@ -42,6 +42,10 @@
               {
                 "containerPort": 80,
                 "protocol": "TCP"
+              },
+              {
+                "containerPort": 8090,
+                "protocol": "TCP"
               }
             ],
             "resources": {},
