@@ -125,7 +125,10 @@ func parseCsvArgs(args []string) *CsvFormat {
 		Wrap:     "",
 		IsLMerge: false,
 	}
+	return doParseCsvArgs(args, csvFmt)
+}
 
+func doParseCsvArgs(args []string, csvFmt *CsvFormat) *CsvFormat {
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "lmerge") {
 			csvFmt.IsLMerge = true
@@ -416,7 +419,7 @@ func ProcessTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, wri
 	for _, row := range rows {
 		for i, col := range row.Cols {
 			switch col.(type) {
-			case map[string]interface{},map[interface{}]interface{}, []interface{}:
+			case map[string]interface{}, map[interface{}]interface{}, []interface{}:
 				bytes, err := yaml.Marshal(col)
 				if err != nil {
 					row.Cols[i] = fmt.Sprintf("%v", col)

@@ -103,8 +103,17 @@ func JsonParse(args []string) {
 	} else {
 		log.Fatalf("Unsupported JSON %s", string(jsonBytes))
 	}
-
-	csvFmt := parseCsvArgs(args)
+	csvFmt := &CsvFormat{
+		ColExt:   &common.IntRange{},
+		RowExt:   &common.IntRange{},
+		Split:    "space+",
+		Merge:    "csv",
+		LMerge:   ",",
+		Wrap:     "",
+		OutputDef: &OutputDef{Type: "table"},
+		IsLMerge: false,
+	}
+	doParseCsvArgs(args, csvFmt)
 	if csvFmt.KeyDef != nil {
 		if len(csvFmt.KeyDef.Fields) == 0 {
 			keys := JsonKeys(array)

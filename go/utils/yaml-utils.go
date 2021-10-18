@@ -31,7 +31,17 @@ func YamlParse(args []string) {
 		}
 		array = append(array, jsonMap)
 	}
-	csvFmt := parseCsvArgs(args)
+	csvFmt := &CsvFormat{
+		ColExt:    &common.IntRange{},
+		RowExt:    &common.IntRange{},
+		Split:     "space+",
+		Merge:     "csv",
+		LMerge:    ",",
+		Wrap:      "",
+		OutputDef: &OutputDef{Type: "table"},
+		IsLMerge:  false,
+	}
+	doParseCsvArgs(args, csvFmt)
 	if csvFmt.KeyDef != nil {
 		if len(csvFmt.KeyDef.Fields) == 0 {
 			keys := getYamlKeys(array)
@@ -184,7 +194,7 @@ func flattenYaml2(json map[interface{}]interface{}, root *TreeNode, depth int, i
 				case map[interface{}]interface{}:
 					if len(value.Map) > 0 {
 						flattenYaml2(e.(map[interface{}]interface{}), value, depth, result)
-					} else{
+					} else {
 						appendYamlResult(value.FullKey(), e, result)
 					}
 				default:
@@ -205,7 +215,7 @@ func flattenYaml2(json map[interface{}]interface{}, root *TreeNode, depth int, i
 		if depth > 1 {
 			for k, v := range result {
 				for _, val := range v {
-					appendYamlResult(fmt.Sprintf("%v",k), val, inResult)
+					appendYamlResult(fmt.Sprintf("%v", k), val, inResult)
 				}
 			}
 		}

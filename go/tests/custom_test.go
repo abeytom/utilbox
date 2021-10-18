@@ -20,7 +20,7 @@ func TestJsonValueMerge(t *testing.T) {
 	json.Unmarshal(bytes, &jsonMap)
 	array := make([]map[string]interface{}, 1)
 	array[0] = jsonMap
-	rows := utils.Flatten(array, []string{"pods.name", "pods.containers.name"})
+	rows := utils.Flatten(array, []string{"json"})
 	fmt.Println("ROWS")
 	for _, row := range rows {
 		fmt.Println(row)

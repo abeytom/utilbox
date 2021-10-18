@@ -21,5 +21,6 @@
         }
       ]
     }
-  ]
+  ],
+  "json": "{\n      \"name\": \"pod2\",\n      \"containers\": [\n        {\n          \"name\": \"container3\"\n        },\n        {\n          \"name\": \"container4\"\n        }\n      ]\n    }"
 }
