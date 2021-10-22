@@ -1,0 +1,1 @@
+goexec "json_parse_line" "$@"

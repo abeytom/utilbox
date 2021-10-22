@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"sort"
 )
 
 /*
@@ -78,40 +79,88 @@ func readStdIn() []byte {
 	}
 }
 
+func readStdIn2(lineCb func(line []byte)) {
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			lineCb(scanner.Bytes())
+		}
+		if err := scanner.Err(); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func JsonParseLine(args []string) {
+	csvFmt := &CsvFormat{
+		ColExt:      &common.IntRange{},
+		RowExt:      &common.IntRange{},
+		Split:       "space+",
+		Merge:       " ",
+		LMerge:      ",",
+		Wrap:        "",
+		IsLMerge:    false,
+		NoHeaderOut: true,
+	}
+	doParseCsvArgs(args, csvFmt)
+	if csvFmt.KeyDef == nil {
+		log.Fatal(errors.New("No keys"))
+	}
+	printKeys := len(csvFmt.KeyDef.Fields) == 0
+	keyMap := make(map[string]bool)
+
+	var cb = func(line []byte) {
+		array := parseJsonBytes(line)
+		if printKeys {
+			keys := JsonKeys(array)
+			for _, key := range keys {
+				keyMap[key.Key] = true
+			}
+		} else {
+			keys := csvFmt.KeyDef.Fields
+			rows := Flatten(array, keys)
+			processOutput(csvFmt, &DataRows{
+				DataRows:     rows,
+				Headers:      keys,
+				GroupByCount: 0,
+				Converted:    false,
+			})
+		}
+	}
+	readStdIn2(cb)
+	if printKeys {
+		keys := make([]string, len(keyMap))
+		i := 0
+		for k := range keyMap {
+			keys[i] = k
+			i++
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			fmt.Printf("%v\n", key)
+		}
+	}
+}
+
 func JsonParse(args []string) {
 	jsonBytes := readStdIn()
 	if jsonBytes == nil {
 		log.Fatal(errors.New("there is no data to read from STDIN"))
 	}
-	x := bytes.TrimLeft(jsonBytes, " \t\r\n")
-	isArray := len(x) > 0 && x[0] == '['
-	isObject := len(x) > 0 && x[0] == '{'
-
-	var array []map[string]interface{}
-	if isObject {
-		var jsonMap map[string]interface{}
-		err := json.Unmarshal(jsonBytes, &jsonMap)
-		if err != nil {
-			log.Printf("Error while marshalling json into map. %v\n", err)
-		}
-		array = append(array, jsonMap)
-	} else if isArray {
-		err := json.Unmarshal(jsonBytes, &array)
-		if err != nil {
-			log.Printf("Error while marshalling json into array. %v\n", err)
-		}
-	} else {
+	array := parseJsonBytes(jsonBytes)
+	if array == nil {
 		log.Fatalf("Unsupported JSON %s", string(jsonBytes))
 	}
 	csvFmt := &CsvFormat{
-		ColExt:   &common.IntRange{},
-		RowExt:   &common.IntRange{},
-		Split:    "space+",
-		Merge:    "csv",
-		LMerge:   ",",
-		Wrap:     "",
+		ColExt:    &common.IntRange{},
+		RowExt:    &common.IntRange{},
+		Split:     "space+",
+		Merge:     "csv",
+		LMerge:    ",",
+		Wrap:      "",
 		OutputDef: &OutputDef{Type: "table"},
-		IsLMerge: false,
+		IsLMerge:  false,
 	}
 	doParseCsvArgs(args, csvFmt)
 	if csvFmt.KeyDef != nil {
@@ -131,6 +180,32 @@ func JsonParse(args []string) {
 			})
 		}
 	}
+}
+
+func parseJsonBytes(jsonBytes []byte) []map[string]interface{} {
+	x := bytes.TrimLeft(jsonBytes, " \t\r\n")
+	isArray := len(x) > 0 && x[0] == '['
+	isObject := len(x) > 0 && x[0] == '{'
+
+	var array []map[string]interface{}
+	if isObject {
+		var jsonMap map[string]interface{}
+		err := json.Unmarshal(jsonBytes, &jsonMap)
+		if err != nil {
+			log.Printf("Error while marshalling json into map. %v\n", err)
+			return nil
+		}
+		array = append(array, jsonMap)
+	} else if isArray {
+		err := json.Unmarshal(jsonBytes, &array)
+		if err != nil {
+			log.Printf("Error while marshalling json into array. %v\n", err)
+			return nil
+		}
+	} else {
+		return nil
+	}
+	return array
 }
 
 func Flatten(array []map[string]interface{}, keys []string) []DataRow {
