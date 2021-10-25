@@ -161,14 +161,16 @@ In case of **JSON** output, additional header names can be set to normalize the 
 the _grouping_. It will infer the _level count_ based on the count of additional headers.
 
 #### -inhead
+
 _minus inhead_
 
-This indicates that there is no header in the input. The headers for the output can be added using the `head[...]` flag 
+This indicates that there is no header in the input. The headers for the output can be added using the `head[...]` flag
 
 #### -outhead
+
 _minus outhead_
 
-Omit headers while printing the output. Valid only for `table` and `csv` output formats 
+Omit headers while printing the output. Valid only for `table` and `csv` output formats
 
 #### out
 
@@ -236,7 +238,8 @@ jp keys            => List the keys
 
 jp keys[key1,key2] => selects the values based on keys into a table 
 ```
-Note: For _grouping_ pipe the `jp` output into `csv` and transform it further. 
+
+Note: For _grouping_ pipe the `jp` output into `csv` and transform it further.
 
 ## 3 YAML
 
@@ -272,4 +275,21 @@ yp keys            => List the keys
 
 yp keys[key1,key2] => selects the values based on keys into a table 
 ```
-Note: For _grouping_ pipe the `yp` output into `csv` and transform it further. 
+
+Note: For _grouping_ pipe the `yp` output into `csv` and transform it further.
+
+## 4 JSON Lines
+
+Treat Each line as JSON and apply Transformation on it. `jpl`
+
+### Usage
+Similar to `jp` command
+```
+cat json_lines.log | jpl keys
+
+cat json_lines.log | jpl keys[timestamp,message]
+```
+
+### Flags
+Similar to `jp` command
+

@@ -112,6 +112,13 @@ func JsonParseLine(args []string) {
 
 	var cb = func(line []byte) {
 		array := parseJsonBytes(line)
+		//print the line if it is not a json
+		if array == nil {
+			if !printKeys {
+				fmt.Println(string(line))
+			}
+			return
+		}
 		if printKeys {
 			keys := JsonKeys(array)
 			for _, key := range keys {
