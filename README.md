@@ -44,46 +44,23 @@ curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.ta
 
 ### [1. BOOKMARK](docs/BOOKMARK.md)
 
-#### [PATHS](docs/BOOKMARK.md#1-paths)
+- [PATHS](docs/BOOKMARK.md#1-paths)
 
-- bk
-- op
-- opf
+- [COMMANDS](docs/BOOKMARK.md#2-commands)
 
-#### [COMMANDS](docs/BOOKMARK.md#2-commands)
-
-- bk
-- run
-
-#### [KEY VALUE](docs/BOOKMARK.md#3-key-value)
-
-- bk
-- kv
+- [KEY VALUE](docs/BOOKMARK.md#3-key-value)
 
 ### [2. TRANSFORM](docs/TRANSFORM.md)
 
-#### [CSV](docs/TRANSFORM.md#1-csv)
+ - [CSV](docs/TRANSFORM.md#1-csv)
 
-- csv
-- tsv
-- command line screen scraping
+ - [JSON](docs/TRANSFORM.md#2-json)
 
-#### [JSON](docs/TRANSFORM.md#2-json)
-
-- json transform
-
-#### [YML](docs/TRANSFORM.md#3-yaml)
-
-- yaml transform
+ - [YML](docs/TRANSFORM.md#3-yaml)
 
 ### [3. KUBECTL WRAPPER](docs/KUBECTL.md)
 
-- kc
-- k8ns
-
 ### [4. CURL WRAPPER](docs/CURL_WRAPPER.md)
-
-- curl2
 
 # Dev Setup
 
