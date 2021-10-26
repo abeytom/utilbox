@@ -1,0 +1,5 @@
+{"timestamp":"ts1","message":"This is a message","fields":{"pod":"pod1","tag":"tag1"}}
+{"timestamp":"ts2","message":"This is a message","fields":{"pod":"pod1","tag":"tag1"}}
+{"timestamp":"ts3","message":"This is a message","fields":{"pod":"pod2","tag":"tag1"}}
+{"timestamp":"ts4","message":"This is a message","fields":{"pod":"pod2","tag":"tag1"}}
+{"timestamp":"ts5","message":"This is a message"}

@@ -51,6 +51,7 @@ type CsvFormat struct {
 	NoHeaderIn   bool
 	CalcDefs     []CalcDef
 	KeyDef       *HeaderDef
+	Filter       *Filter
 }
 
 type GroupByDef struct {
@@ -87,6 +88,11 @@ type OutputData struct {
 	Rows         []DataRow
 	Headers      []string
 	GroupByCount int
+}
+
+type Filter struct {
+	ExprStr string
+	Expr    *govaluate.EvaluableExpression
 }
 
 func CsvParse(args []string) {
@@ -168,6 +174,8 @@ func doParseCsvArgs(args []string, csvFmt *CsvFormat) *CsvFormat {
 			def := &HeaderDef{}
 			def.Fields = common.ParseIndexStr(arg)
 			csvFmt.KeyDef = def
+		} else if strings.HasPrefix(arg, "filter") {
+			extractFilterDef(arg, csvFmt)
 		}
 	}
 	if csvFmt.NoHeaderIn {
@@ -920,6 +928,18 @@ func extractCalcDef(arg string, csvFmt *CsvFormat) {
 	}
 	def.EvalExpr = expr
 	csvFmt.CalcDefs = append(csvFmt.CalcDefs, def)
+}
+
+func extractFilterDef(arg string, csvFmt *CsvFormat) {
+	parts := parseInlineCommand("filter", arg)
+	exprStr := parts[1]
+	filter := &Filter{ExprStr: exprStr}
+	expr, err := govaluate.NewEvaluableExpression(exprStr)
+	if err != nil {
+		log.Fatalf("Invalid expression %v. The error is %v", exprStr, err)
+	}
+	filter.Expr = expr
+	csvFmt.Filter = filter
 }
 
 func processOutputArgs(command string, c *CsvFormat) {

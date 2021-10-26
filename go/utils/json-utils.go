@@ -5,10 +5,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/Knetic/govaluate"
 	"log"
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 )
 
 /*
@@ -33,6 +35,7 @@ type TreeNode struct {
 	Map    map[string]*TreeNode
 	Parent *TreeNode
 	Key    string
+	Leaf   bool
 }
 
 func NewTreeNode() *TreeNode {
@@ -50,6 +53,8 @@ func (t *TreeNode) Add(segments []string) {
 	}
 	if len(segments) > 1 {
 		node.Add(segments[1:])
+	} else {
+		node.Leaf = true
 	}
 }
 
@@ -93,6 +98,7 @@ func readStdIn2(lineCb func(line []byte)) {
 }
 
 func JsonParseLine(args []string) {
+	var wExpr *ExprWrap
 	csvFmt := &CsvFormat{
 		ColExt:      &common.IntRange{},
 		RowExt:      &common.IntRange{},
@@ -104,8 +110,16 @@ func JsonParseLine(args []string) {
 		NoHeaderOut: true,
 	}
 	doParseCsvArgs(args, csvFmt)
+	hasFilter := csvFmt.Filter != nil && csvFmt.Filter.Expr != nil
+	if hasFilter {
+		wExpr = NewExprWrap(csvFmt.Filter.Expr)
+	}
 	if csvFmt.KeyDef == nil {
-		log.Fatal(errors.New("No keys"))
+		if !hasFilter {
+			log.Fatal(errors.New("No keys"))
+		}
+		applyFilter(csvFmt)
+		return
 	}
 	printKeys := len(csvFmt.KeyDef.Fields) == 0
 	keyMap := make(map[string]bool)
@@ -125,6 +139,9 @@ func JsonParseLine(args []string) {
 				keyMap[key.Key] = true
 			}
 		} else {
+			if !applyFilter2(wExpr, array) {
+				return
+			}
 			keys := csvFmt.KeyDef.Fields
 			rows := Flatten(array, keys)
 			processOutput(csvFmt, &DataRows{
@@ -148,6 +165,85 @@ func JsonParseLine(args []string) {
 			fmt.Printf("%v\n", key)
 		}
 	}
+}
+
+func applyFilter2(wExpr *ExprWrap, array []map[string]interface{}) bool {
+	if wExpr == nil {
+		return true
+	}
+	params := make(map[string]interface{})
+	for _, key := range wExpr.keys {
+		value := getValueForKeyFromArray(array, key)
+		params[key] = wExpr.convertValue(key, value)
+	}
+	evaluate, err := wExpr.expr.Evaluate(params)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while eval '%v' with params '%+v'. The error is '%v'",
+			wExpr.expr, params, err)
+		return false
+	}
+	switch evaluate.(type) {
+	case bool:
+		if evaluate.(bool) {
+			return true
+		}
+	}
+	return false
+}
+
+func getValueForKeyFromArray(array []map[string]interface{}, key string) interface{} {
+	segments := splitKey(key)
+	if len(array) == 0 {
+		return ""
+	}
+	if len(array) == 1 {
+		return getValueForKeyFromMap(array[0], segments)
+	}
+	values := make([]interface{}, len(array))
+	for i, json := range array {
+		values[i] = getValueForKeyFromMap(json, segments)
+	}
+	return values
+}
+
+func getValueForKeyFromMap(json map[string]interface{}, segments []string) interface{} {
+	value, exists := json[segments[0]]
+	if !exists {
+		return ""
+	}
+	if len(segments) == 1 {
+		return value
+	}
+	switch value.(type) {
+	case []interface{}:
+		var subVals []interface{}
+		for _, e := range value.([]interface{}) {
+			switch e.(type) {
+			case map[string]interface{}:
+				subVal := getValueForKeyFromMap(e.(map[string]interface{}), segments[1:])
+				subVals = append(subVals, subVal)
+			}
+		}
+		return subVals
+	case map[string]interface{}:
+		return getValueForKeyFromMap(value.(map[string]interface{}), segments[1:])
+	}
+	return ""
+}
+
+func applyFilter(csvFmt *CsvFormat) {
+	expr := csvFmt.Filter.Expr
+	wExpr := NewExprWrap(expr)
+	if len(wExpr.keys) == 0 {
+		log.Fatalf("Invalid Expr '%v'. Atleast one variable is expected", csvFmt.Filter.ExprStr)
+	}
+	var cb = func(line []byte) {
+		array := parseJsonBytes(line)
+		if applyFilter2(wExpr, array) {
+			fmt.Println(string(line))
+		}
+	}
+	readStdIn2(cb)
 }
 
 func JsonParse(args []string) {
@@ -253,34 +349,39 @@ L:
 }
 
 func processFlattenedResults(result map[string][]interface{}, keys []string, rows []DataRow) []DataRow {
-	if len(keys) == 1 {
-		if len(result) == 0 {
-			return rows
-		}
-		values, exists := result[keys[0]]
-		if !exists {
-			return rows
-		}
-		size := len(values)
-		if size == 0 {
-			return rows
-		} else if size == 1 {
-			return append(rows, DataRow{Cols: []interface{}{values[0]}})
-		}
-		set := convertValuesToStringSet(values)
-		if set == nil {
-			for _, value := range values {
-				rows = append(rows, DataRow{Cols: []interface{}{value}})
+	if len(result) == 0 {
+		return rows
+	}
+	//todo fixme this needs to be re-written
+	//buggy + buggy + buggy
+	resultRows, exists := result["_$result$_"]
+	if !exists {
+		for _, key := range keys {
+			values, valExists := result[key]
+			if !valExists {
+				return rows
 			}
-		} else {
-			for _, value := range set.Values() {
-				rows = append(rows, DataRow{Cols: []interface{}{value}})
+			size := len(values)
+			if size == 0 {
+				return rows
+			} else if size == 1 {
+				return append(rows, DataRow{Cols: []interface{}{values[0]}})
+			}
+			set := convertValuesToStringSet(values)
+			if set == nil {
+				for _, value := range values {
+					rows = append(rows, DataRow{Cols: []interface{}{value}})
+				}
+			} else {
+				for _, value := range set.Values() {
+					rows = append(rows, DataRow{Cols: []interface{}{value}})
+				}
 			}
 		}
+
 		return rows
 	}
 
-	resultRows, exists := result["result"]
 	if exists {
 		for _, resultsVal := range resultRows {
 			resultMap := resultsVal.(map[string][]interface{})
@@ -334,6 +435,9 @@ func flatten(json map[string]interface{}, root *TreeNode, depth int, inResult ma
 				case map[string]interface{}:
 					if len(value.Map) > 0 {
 						flatten(e.(map[string]interface{}), value, depth, result)
+						if value.Leaf {
+							appendResult(value.FullKey(), e, result)
+						}
 					} else {
 						appendResult(value.FullKey(), e, result)
 					}
@@ -344,6 +448,9 @@ func flatten(json map[string]interface{}, root *TreeNode, depth int, inResult ma
 		case map[string]interface{}:
 			if len(value.Map) > 0 {
 				flatten(v.(map[string]interface{}), value, depth, result)
+				if value.Leaf {
+					appendResult(value.FullKey(), v, result)
+				}
 			} else {
 				appendResult(value.FullKey(), v, result)
 			}
@@ -360,7 +467,7 @@ func flatten(json map[string]interface{}, root *TreeNode, depth int, inResult ma
 			}
 		}
 		if depth == 1 {
-			appendResult("result", result, inResult)
+			appendResult("_$result$_", result, inResult)
 		}
 	}
 }
@@ -424,4 +531,57 @@ func splitKey(key string) []string {
 	segment := string(chars[prevIdx:])
 	segments = append(segments, strings.ReplaceAll(segment, "\\.", "."))
 	return segments
+}
+
+type ExprWrap struct {
+	expr     *govaluate.EvaluableExpression
+	keys     []string
+	valueMap map[string]govaluate.ExpressionToken
+}
+
+func (e *ExprWrap) convertValue(key string, value interface{}) interface{} {
+	token, exists := e.valueMap[key]
+	if !exists {
+		return value
+	}
+	switch token.Kind {
+	case govaluate.NUMERIC:
+		switch value.(type) {
+		case string:
+			int64Val, err := strconv.ParseInt(value.(string), 10, 64)
+			if err == nil {
+				return int64Val
+			}
+			float64Val, err := strconv.ParseFloat(value.(string), 64)
+			if err == nil {
+				return float64Val
+			}
+		}
+	case govaluate.STRING:
+		switch value.(type) {
+		case string:
+			return value
+		default:
+			return fmt.Sprintf("%v", value)
+		}
+	}
+	return value
+}
+
+func NewExprWrap(expr *govaluate.EvaluableExpression) *ExprWrap {
+	tokens := expr.Tokens()
+	valueMap := make(map[string]govaluate.ExpressionToken)
+	var keys []string
+	for i := 0; i < len(tokens)-2; i++ {
+		token := tokens[i]
+		if token.Kind == govaluate.VARIABLE {
+			if tokens[i+1].Kind == govaluate.COMPARATOR {
+				valueMap[token.Value.(string)] = tokens[i+2]
+				i += 2
+			}
+			keys = append(keys, token.Value.(string))
+		}
+
+	}
+	return &ExprWrap{expr: expr, keys: keys, valueMap: valueMap}
 }

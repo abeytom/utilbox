@@ -2,22 +2,28 @@
   "pods": [
     {
       "name": "pod1",
+      "fname": "pods.pod1",
       "containers": [
         {
-          "name": "container1"
+          "name": "container1",
+          "name2": "container1a"
         },
         {
-          "name": "container2"
+          "name": "container2",
+          "name2": "container2a"
         }
       ]
     },{
       "name": "pod2",
+      "fname": "pods.pod2",
       "containers": [
         {
-          "name": "container3"
+          "name": "container3",
+          "name2": "container3a"
         },
         {
-          "name": "container4"
+          "name": "container4",
+          "name2": "container4a"
         }
       ]
     }
