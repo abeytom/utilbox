@@ -23,7 +23,7 @@ func VbExec(args []string) {
 	} else if args[0] == "stop" {
 		VbStop(args)
 	} else if args[0] == "save" {
-		VbStop(args)
+		VbSave(args)
 	} else if args[0] == "ls" {
 		VbStatus(args)
 	} else if args[0] == "rm" {
@@ -129,6 +129,23 @@ func VbStatus(args []string) {
 }
 
 func VbStop(args []string) {
+	vms := getRunningVms()
+	if len(vms) == 0 {
+		fmt.Println("No VMs are running")
+		return
+	}
+	for _, vm := range vms {
+		fmt.Printf("Powering off the VM %v \n", vm)
+		stopOut, stopErrOut, stopErr := ExecuteCommand2("VBoxManage", "controlvm",
+			vm, "acpipowerbutton")
+		if stopErr != nil {
+			fmt.Printf("[ERROR] %v. %v\n", stopErrOut, stopErr)
+		}
+		fmt.Println(stopOut)
+	}
+}
+
+func VbSave(args []string) {
 	vms := getRunningVms()
 	if len(vms) == 0 {
 		fmt.Println("No VMs are running")
