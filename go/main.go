@@ -34,6 +34,8 @@ func main() {
 		utils.CsvParse(args[2:])
 	} else if args[1] == "yaml_parse" {
 		utils.YamlParse(args[2:])
+	} else if args[1] == "vbox" {
+		utils.VbExec(args[2:])
 	} else {
 		fmt.Printf("Unknown command %s\n", args)
 	}
