@@ -12,7 +12,7 @@ func main() {
 	args := os.Args
 	if args[1] == "utils" {
 		utils.Execute(args[1:])
-	}else if args[1] == "run" {
+	} else if args[1] == "run" {
 		utils.ExecuteCommand(args[1:])
 	} else if args[1] == "k8" {
 		k8.Execute(args)
@@ -28,7 +28,7 @@ func main() {
 		utils.Curl(args[2:])
 	} else if args[1] == "json_parse" {
 		utils.JsonParse(args[2:])
-	}else if args[1] == "json_parse_line" {
+	} else if args[1] == "json_parse_line" {
 		utils.JsonParseLine(args[2:])
 	} else if args[1] == "csv_parse" {
 		utils.CsvParse(args[2:])
@@ -36,6 +36,8 @@ func main() {
 		utils.YamlParse(args[2:])
 	} else if args[1] == "vbox" {
 		utils.VbExec(args[2:])
+	} else if args[1] == "regex" {
+		utils.RegexExtract(args[2:])
 	} else {
 		fmt.Printf("Unknown command %s\n", args)
 	}

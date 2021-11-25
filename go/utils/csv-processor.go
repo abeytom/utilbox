@@ -285,25 +285,28 @@ func (s *DataRowSort) Less(i, j int) bool {
 func (s *DataRowSort) Compare(one interface{}, two interface{}) int {
 	switch one.(type) {
 	case int:
-		if one.(int) == two.(int) {
+		twoVal := ConvInt(two, -1)
+		if one.(int) == twoVal {
 			return 0
-		} else if one.(int) < two.(int) {
+		} else if one.(int) < twoVal {
 			return -1
 		} else {
 			return 1
 		}
 	case int64:
-		if one.(int64) == two.(int64) {
+		twoVal := ConvInt64(two, -1)
+		if one.(int64) == twoVal {
 			return 0
-		} else if one.(int64) < two.(int64) {
+		} else if one.(int64) < twoVal {
 			return -1
 		} else {
 			return 1
 		}
 	case float64:
-		if one.(float64) == two.(float64) {
+		twoVal := ConvFloat64(two, -1)
+		if one.(float64) == twoVal {
 			return 0
-		} else if one.(float64) < two.(float64) {
+		} else if one.(float64) < twoVal {
 			return -1
 		} else {
 			return 1
@@ -318,6 +321,60 @@ func (s *DataRowSort) Compare(one interface{}, two interface{}) int {
 		} else {
 			return 1
 		}
+	}
+}
+
+func ConvInt(val interface{}, def int) int {
+	switch val.(type) {
+	case int:
+		return val.(int)
+	case int64:
+		return int(val.(int64))
+	case float64:
+		return int(val.(float64))
+	default:
+		str := fmt.Sprintf("%v", val)
+		atoi, err := strconv.Atoi(str)
+		if err == nil {
+			return atoi
+		}
+		return def
+	}
+}
+
+func ConvInt64(val interface{}, def int64) int64 {
+	switch val.(type) {
+	case int:
+		return int64(val.(int))
+	case int64:
+		return val.(int64)
+	case float64:
+		return int64(val.(float64))
+	default:
+		str := fmt.Sprintf("%v", val)
+		atoi, err := strconv.ParseInt(str, 10, 64)
+		if err == nil {
+			return atoi
+		}
+		return def
+	}
+}
+
+func ConvFloat64(val interface{}, def float64) float64 {
+	switch val.(type) {
+	case int:
+		return float64(val.(int))
+	case int64:
+		return float64(val.(int64))
+	case float64:
+		return val.(float64)
+	default:
+		str := fmt.Sprintf("%v", val)
+		atoi, err := strconv.ParseFloat(str, 64)
+		if err == nil {
+			return atoi
+		}
+		return def
 	}
 }
 
