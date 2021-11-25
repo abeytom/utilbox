@@ -13,14 +13,14 @@ avoid expansion
 ### Current Dir
 
 ```
-curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-amd64.tar.gz \
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.3/utilbox-linux-amd64.tar.gz \
  | tar -xvz && export PATH=$PATH:$(pwd)/utilbox
 ```
 
 ### Home Dir
 
 ```
-curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-amd64.tar.gz \
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.3/utilbox-linux-amd64.tar.gz \
  | tar -xvz -C $HOME && export PATH=$PATH:$HOME/utilbox
 ```
 
@@ -29,14 +29,14 @@ curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-linux-
 ### Current Dir
 
 ```
-curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.tar.gz \
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.3/utilbox-osx.tar.gz \
  | tar -xvz && export PATH=$PATH:$(pwd)/utilbox
 ```
 
 ### Home Dir
 
 ```
-curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.tar.gz \
+curl -L https://github.com/abeytom/utilbox/releases/download/v0.3/utilbox-osx.tar.gz \
  | tar -xvz -C $HOME && export PATH=$PATH:$HOME/utilbox
 ```
 
@@ -61,6 +61,8 @@ curl -L https://github.com/abeytom/utilbox/releases/download/v0.2/utilbox-osx.ta
 ### [3. KUBECTL WRAPPER](docs/KUBECTL.md)
 
 ### [4. CURL WRAPPER](docs/CURL_WRAPPER.md)
+
+### [5. REGEX](docs/REGEX.md)
 
 # Dev Setup
 
