@@ -1,0 +1,41 @@
+#! /bin/bash
+
+# Switch the aws credentials
+
+if [ -z "$1" ]; then
+  echo "Available contexts are "
+  cd ~/.aws/ || exit 1
+  for name in *; do
+    if echo "$name" | grep -F "credentials." >/dev/null; then
+      extension="${name##*.}"
+      echo "  $extension"
+    fi
+  done
+  exit 1
+fi
+
+# Do nothing & Exit if the context doesnt exist
+credFile="$HOME/.aws/credentials.$1"
+if test -f "$credFile"; then
+  cat "$credFile" >"$HOME/.aws/credentials"
+  chmod 600 "$HOME/.aws/credentials"
+else
+  echo "The credentials file doesnt exist [$credFile]"
+  exit 1
+fi
+
+# Create the config only if it exists, else use the existing
+configFile="$HOME/.aws/config.$1"
+if test -f "$configFile"; then
+  cat "$configFile" >"$HOME/.aws/config"
+  chmod 600 "$HOME/.aws/config"
+fi
+
+# Create the param file for config. Blank the existing if not exists
+paramsFile="$HOME/.aws/params.$1"
+if test -f "$paramsFile"; then
+  cat "$paramsFile" >"$HOME/.aws/params"
+  chmod 600 "$HOME/.aws/params"
+else
+  echo "" >"$HOME/.aws/params"
+fi

@@ -36,6 +36,8 @@ func main() {
 		utils.YamlParse(args[2:])
 	} else if args[1] == "vbox" {
 		utils.VbExec(args[2:])
+	} else if args[1] == "awx" {
+		utils.AwsExec(args[2:])
 	} else if args[1] == "regex" {
 		utils.RegexExtract(args[2:])
 	} else {

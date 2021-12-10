@@ -64,6 +64,8 @@ curl -L https://github.com/abeytom/utilbox/releases/download/v0.3/utilbox-osx.ta
 
 ### [5. REGEX](docs/REGEX.md)
 
+### [5. AWX WRAPPER](docs/AWX.md)
+
 # Dev Setup
 
 - Clone this repo to say `~/github/abeytom/utilbox`

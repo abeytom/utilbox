@@ -427,7 +427,7 @@ func ProcessTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, wri
 	for _, row := range rows {
 		for i, col := range row.Cols {
 			switch col.(type) {
-			case map[string]interface{}, map[interface{}]interface{}, []interface{}:
+			case map[string]interface{}, map[interface{}]interface{}, []interface{}, []map[string]string:
 				bytes, err := yaml.Marshal(col)
 				if err != nil {
 					row.Cols[i] = fmt.Sprintf("%v", col)
