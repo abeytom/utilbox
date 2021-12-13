@@ -6,7 +6,7 @@ scenarios.
 ## 1. Params  File
 
 A file with YAML format must be created at `~/.aws/params` with the following data. This is for externalization and to
-avoid typing the params each time. 
+avoid typing the params each time.
 
 ```yaml
 #YAML File
@@ -15,16 +15,17 @@ ec2:
   # Name of the keypair to ssh into the machine for launching the ec2 instance
   sshKeyPairName: keypair
   # Pre-existing security group for launching the ec2 instance
-  securityGroupId:
+  securityGroupId: sg-00f****
   # Pre-existing subnet id for launching the ec2 instance   
-  subNetId: subnet-72e2a63e
+  subNetId: subnet-****
   # This is to filter the AMIs that will be used to launch. 
   # The AMI with this value for the `Type` tag only is selected 
-  amiTypeTag: atom_template
+  amiTypeTag: my_template
   # This value will be added to the `Type` tag of the newly launched EC2 instance
-  instanceTypeTag: atom_template
-  # This value will be th prefix of the `Name` tag of new EC2 Instance
-  instanceNameTagPrefix: atom_tpl_
+  instanceTypeTag: my_template
+  # This value will be the prefix of the `Name` tag of new EC2 Instance
+  # This will be suffixed by the param set in the launch command
+  instanceNameTagPrefix: my_inst_
 ```
 
 ## 2. AWS Credentials
@@ -46,18 +47,25 @@ The commands are
 ### 3.1 `awx ls`
 
 Lists the EC2 Instances which matches the tag `Type` eq  `$instanceTypeTag`_(from param file)_. An optional command line
-param `-row` can be added see the output in json.
+param `--raw` can be added see the output in json.
 
 ### 3.2 `awx ami ls`
 
 Lists the AMI which matches the tag `Type` eq  `$atom_template`_(from param file)_. An optional command line
-param `-row` can be added see the output in json.
+param `--raw` can be added see the output in json.
 
 ### 3.3 `awx launch <amiId> <namePrefix>`
 
 Launches an EC2 Instance with the AMI with the `amiId`. The other params from the param file will be set as the
 arguments while launching. The `Type` tag of the launched will be set with the value of `$atom_template`. The `Name` tag
 will be created as `$instanceNameTagPrefix$namePrefix`.
+
+The params from the `paramFile` can be overridden by command line args.
+
+```
+awx launch <amiId> <namePrefix> --ec2-instance-type m5.xlarge \
+    --ec2-instance-name-tag-prefix my_inst
+```
 
 ### 3.4 `awx start <instanceId>`
 

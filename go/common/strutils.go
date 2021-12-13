@@ -188,8 +188,8 @@ var void struct{}
 
 //todo avoid saving keys if it is not needed
 type StringSet struct {
-	values map[string]struct{}
-	keys   []string
+	values  map[string]struct{}
+	keys    []string
 	ordered bool
 }
 
@@ -219,7 +219,7 @@ func (s *StringSet) Add(str string) {
 }
 
 func (s *StringSet) Values() []string {
-	if s.ordered{
+	if s.ordered {
 		return s.keys
 	}
 	keys := make([]string, len(s.values))
@@ -238,4 +238,31 @@ func (s *StringSet) ToString() string {
 
 func (s *StringSet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.Values())
+}
+
+func DelimToCamelCase(str string, delim rune, capitalizeFirst bool) string {
+	isToUpper := false
+	var output string
+	for k, v := range str {
+		if k == 0 {
+			if capitalizeFirst {
+				output = strings.ToUpper(string(v))
+			} else {
+				output = string(v)
+			}
+		} else {
+			if isToUpper {
+				output += strings.ToUpper(string(v))
+				isToUpper = false
+			} else {
+				if v == delim {
+					isToUpper = true
+				} else {
+					output += string(v)
+				}
+			}
+		}
+	}
+	return output
+
 }

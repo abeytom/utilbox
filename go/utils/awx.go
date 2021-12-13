@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -97,7 +98,7 @@ func AwsExec(args []string) {
 	}
 }
 
-func loadParams([]string) awsParams {
+func loadParams(args []string) awsParams {
 	paramFile := os.Getenv("PARAM_FILE")
 	if len(paramFile) == 0 {
 		paramFile = filepath.Join(os.Getenv("HOME"), ".aws/params")
@@ -115,6 +116,18 @@ func loadParams([]string) awsParams {
 	if parseErr != nil {
 		log.Fatalf("Error parsing YAML: %v", parseErr)
 	}
+	ec2Inst := reflect.ValueOf(&params.Ec2).Elem()
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if strings.Index(arg, "--ec2-") == 0 {
+			varName := common.DelimToCamelCase(arg[6:], '-', true)
+			field := ec2Inst.FieldByName(varName)
+			if field.IsValid() && field.CanSet() {
+				field.SetString(args[i+1])
+				i++
+			}
+		}
+	}
 	return params
 }
 
@@ -122,7 +135,7 @@ func awsAmiList(args []string, ec2 ec2Params) {
 	if len(ec2.AmiTypeTag) == 0 {
 		log.Fatalf("The `amiTypeTag` must be set")
 	}
-	raw := len(args) > 2 && args[2] == "-raw"
+	raw := len(args) > 2 && args[2] == "--raw"
 	outStr, errStr, err := ExecuteCommand2("aws", "ec2", "describe-images", "--filters",
 		"Name=tag:Type,Values="+ec2.AmiTypeTag)
 	if err != nil {
@@ -237,7 +250,7 @@ func awsList(args []string, param ec2Params) {
 	if len(param.InstanceTypeTag) == 0 {
 		log.Fatalf("The instanceTypeTag must be set")
 	}
-	raw := len(args) > 1 && args[1] == "-raw"
+	raw := len(args) > 1 && args[1] == "--raw"
 	outStr, errStr, err := ExecuteCommand2("aws", "ec2", "describe-instances", "--filters",
 		"Name=tag:Type,Values="+param.InstanceTypeTag)
 	if err != nil {
@@ -305,7 +318,7 @@ func getSortedInstances(desc awsDescribeInst) []awsInstance {
 			if err == nil {
 				inst.launchTimeHuman = timeSince(t)
 				inst.launchTimeMillis = t.UnixMilli()
-			}else{
+			} else {
 				fmt.Println(err)
 			}
 			instances = append(instances, inst)
@@ -353,8 +366,8 @@ func timeSince(t time.Time) string {
 
 func awsHelp() {
 	fmt.Println("Available commands are:")
-	fmt.Println("    awx ls [-raw]")
-	fmt.Println("    aws ami ls [-raw]")
+	fmt.Println("    awx ls [--raw]")
+	fmt.Println("    aws ami ls [--raw]")
 	fmt.Println("    awx launch <instanceId> <name suffix>")
 	fmt.Println("    awx start <instanceId>")
 	fmt.Println("    awx stop <instanceId>")
