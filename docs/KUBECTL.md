@@ -71,10 +71,10 @@ PS1+="\[\e[0;34m\]\$(get_k8ns_prompt)\[\e[0m\] \$ "
 get_prompt(){
     base1="${PWD##*/}"
     dir1="${PWD%/*}"
-    PROMPT_STR="%F{magenta}${dir1##*/}/$base1%F"
+    PROMPT_STR="%F{magenta}${dir1##*/}/$base1%f"
 
     if [[ ! -z "${k8ns}" ]]; then
-        PROMPT_STR="$PROMPT_STR %F{blue} (k8ns: $k8ns) (k8ctx:$(kubectl config current-context))%F"
+        PROMPT_STR="$PROMPT_STR %F{blue} (k8ns: $k8ns) (k8ctx:$(kubectl config current-context))%f"
     fi
     
     echo $PROMPT_STR
@@ -89,7 +89,7 @@ GIT_PS1_SHOWUNTRACKEDFILES=true
 # GIT_PS1_SHOWCOLORHINTS=true
 
 setopt PROMPT_SUBST
-PROMPT='$(get_prompt)%F{green}$(__git_ps1 " (%s)")%F \$ '
+PROMPT='$(get_prompt)%F{green}$(__git_ps1 " (%s)")%f \$ '
 ```
 
 
