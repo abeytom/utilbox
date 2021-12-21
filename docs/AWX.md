@@ -79,6 +79,10 @@ Starts an existing Ec2 Instance. This will ask for a user prompt
 
 Terminates an existing Ec2 Instance. This will ask for a user prompt
 
+### 3.7 `awx create-ami <instanceId> <amiName>`
+
+Creates an AMI from the Ec2 Instance
+
 ## 4. AWS Context Switcher `AWSS`
 
 This is a context switcher for the files in the directory `~/.aws`. The files must be named in the following format i.e.

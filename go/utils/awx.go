@@ -85,6 +85,8 @@ func AwsExec(args []string) {
 		awsInstanceCommand(args, "terminate-instances", true)
 	} else if args[0] == "launch" {
 		awsLaunch(args, loadParams(args).Ec2)
+	} else if args[0] == "create-ami" {
+		createAmi(args, loadParams(args).Ec2)
 	} else if args[0] == "ami" {
 		if len(args) < 2 {
 			awsHelp()
@@ -186,9 +188,30 @@ func awsAmiList(args []string, ec2 ec2Params) {
 	})
 }
 
+func createAmi(args []string, ec2 ec2Params) {
+	if len(args) < 3 || len(strings.TrimSpace(args[1])) == 0 || len(strings.TrimSpace(args[2])) == 0 {
+		log.Fatalf("The Instance ID and AMI Name should be set as args")
+	}
+	instanceId := strings.TrimSpace(args[1])
+	amiName := strings.TrimSpace(args[2])
+	typeTag := ensureValue(ec2.InstanceTypeTag, "instanceTypeTag")
+	tagSpec := fmt.Sprintf("ResourceType=image,Tags=[{Key=Name,Value=%v},{Key=Type,Value=%v}]",
+		amiName, typeTag)
+	cmdOut, cmdErr, err := ExecuteCommand2("aws", "ec2", "create-image",
+		"--instance-id", instanceId,
+		"--name", amiName,
+		"--description", amiName,
+		"--tag-specifications", tagSpec,
+	)
+	if err != nil {
+		log.Fatalf("Error while executing launch. The message is [%v]. The error is [%v]", cmdErr, err)
+	}
+	fmt.Println(cmdOut)
+}
+
 func awsLaunch(args []string, ec2 ec2Params) {
 	if len(args) < 3 || len(strings.TrimSpace(args[1])) == 0 || len(strings.TrimSpace(args[2])) == 0 {
-		log.Fatalf("The AMI ID and Suffix")
+		log.Fatalf("The AMI ID and Suffix should be set as args")
 	}
 	amiId := strings.TrimSpace(args[1])
 	suffix := strings.TrimSpace(args[2])
@@ -372,4 +395,5 @@ func awsHelp() {
 	fmt.Println("    awx start <instanceId>")
 	fmt.Println("    awx stop <instanceId>")
 	fmt.Println("    awx terminate <instanceId>")
+	fmt.Println("    awx create-ami <instanceId> <amiName>")
 }
