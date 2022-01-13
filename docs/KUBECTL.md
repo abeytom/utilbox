@@ -63,10 +63,10 @@ get_k8ns_prompt(){
 }
 
 # APPEND TO EXISTING PROMPT
-PS1+="\[\e[0;34m\]\$(get_k8ns_prompt)\[\e[0m\] \$ "
+# PS1+="\[\e[0;34m\]\$(get_k8ns_prompt)\[\e[0m\] \$ "
 
 # CREATE NEW PROMPT 'user@host parent/dir $k8s'
-#export PS1="\[\e[1;32m\]\u@\h\[\e[0m\] \[\e[0;35m\]\$(get_base_dir_prompt)\[\e[0m\] \[\e[0;34m\]\$(get_k8ns_prompt)\[\e[0m\] \$ "
+export PS1="\[\e[1;32m\]\u@\h\[\e[0m\] \[\e[0;35m\]\$(get_base_dir_prompt)\[\e[0m\] \[\e[0;34m\]\$(get_k8ns_prompt)\[\e[0m\] \$ "
 
 ```
 
