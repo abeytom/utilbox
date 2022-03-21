@@ -1,0 +1,5 @@
+if [[ -z "${k8ns}" ]]; then
+  helm "$@"
+else
+  helm -n "$k8ns" "$@"
+fi

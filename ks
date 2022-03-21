@@ -21,6 +21,9 @@ file="$HOME/.kube/config.$1"
 if test -f "$file"; then
     cat "$file" > "$HOME/.kube/config"
     chmod 600 "$HOME/.kube/config"
+    if [ $# -gt 1 ]; then
+        sed -i '' "s/K8S_HOST/$2/g" "$HOME/.kube/config"
+    fi
 else
   echo "The file doesnt exist [$file]"
   exit 1
