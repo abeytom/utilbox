@@ -28,14 +28,14 @@ func TestJsonKeyMultipleVals(t *testing.T) {
 	lines := execCmdGetLines(cmd)
 	assertIntEquals(len(lines), 14)
 	assertStringEquals(lines[0], "items.metadata.name            items.spec.containers.args    ")
-	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7       nginx                         ")
-	assertStringEquals(lines[2], "                               start                         ")
+	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7       start                         ")
+	assertStringEquals(lines[2], "                               nginx                         ")
 
 	cmd = fmt.Sprintf("cat %v | jp  keys[items.metadata.name,items.spec.containers.args]  out..csv", podsJson)
 	lines = execCmdGetLines(cmd)
 	assertIntEquals(len(lines), 8)
 	assertStringEquals(lines[0], "items.metadata.name,items.spec.containers.args")
-	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7,\"nginx,start\"")
+	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7,\"start,nginx\"")
 }
 
 func TestJsonKeyBlankVals(t *testing.T) {
@@ -94,7 +94,7 @@ func TestJsonComplexObjects(t *testing.T) {
 	assertStringEquals(lines[2], "                      image: docker.io/library/nginx:latest                                                                                              ")
 }
 
-func TestJsonMultipleKeyBranch(t *testing.T){
+func TestJsonMultipleKeyBranch(t *testing.T) {
 	podsJson := path.Join(getCurrentDir(t), "custom.json")
 
 	cmd := fmt.Sprintf("cat %v | jp keys[pods.name,pods.containers.name] out..table", podsJson)
@@ -106,7 +106,6 @@ func TestJsonMultipleKeyBranch(t *testing.T){
 	assertStringEquals(lines[3], "pod2         container3              ")
 	assertStringEquals(lines[4], "             container4              ")
 }
-
 
 func assertStringEquals(actual string, expected string) {
 	if actual != expected {

@@ -110,9 +110,9 @@ func Merge(oVal interface{}, nVal string) interface{} {
 			return float64Val + oVal.(float64)
 		}
 		return oVal
-	case *common.StringSet:
+	case common.StringCol:
 		if nVal != "" {
-			oVal.(*common.StringSet).Add(nVal)
+			oVal.(common.StringCol).Add(nVal)
 		}
 		return oVal
 	default:

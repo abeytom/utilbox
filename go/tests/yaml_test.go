@@ -23,14 +23,14 @@ func TestYamlKeyMultipleVals(t *testing.T) {
 	lines := execCmdGetLines(cmd)
 	assertIntEquals(len(lines), 14)
 	assertStringEquals(lines[0], "items.metadata.name            items.spec.containers.args    ")
-	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7       nginx                         ")
-	assertStringEquals(lines[2], "                               start                         ")
+	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7       start                         ")
+	assertStringEquals(lines[2], "                               nginx                         ")
 
 	cmd = fmt.Sprintf("cat %v | yp  keys[items.metadata.name,items.spec.containers.args]  out..csv", podsJson)
 	lines = execCmdGetLines(cmd)
 	assertIntEquals(len(lines), 8)
 	assertStringEquals(lines[0], "items.metadata.name,items.spec.containers.args")
-	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7,\"nginx,start\"")
+	assertStringEquals(lines[1], "gateway-7b8c56d867-brgg7,\"start,nginx\"")
 }
 
 func TestYamlKeyBlankVals(t *testing.T) {
@@ -88,12 +88,11 @@ func TestYamlComplexObjects(t *testing.T) {
 	assertStringEquals(lines[1], "Running               containerID: containerd://9c69794ee3caf7dfd6bf1c51c04c2c36775afd9a114eaf1ec2a802ede6cfe077                  ip: 10.1.151.232       ")
 	assertStringEquals(lines[2], "                      image: docker.io/library/nginx:latest                                                                                              ")
 
-
 	//todo implement this yaml -> json output
 	//cmd := fmt.Sprintf("cat %v | yp  keys[items.status.phase,items.status.containerStatuses,items.status.podIPs]  out..json", podsJson)
 }
 
-func TestYamlMultipleKeyBranch(t *testing.T){
+func TestYamlMultipleKeyBranch(t *testing.T) {
 	podsJson := path.Join(getCurrentDir(t), "custom.yml")
 
 	cmd := fmt.Sprintf("cat %v | yp keys[pods.name,pods.containers.name] out..table", podsJson)
@@ -103,4 +102,3 @@ func TestYamlMultipleKeyBranch(t *testing.T){
 	assertStringEquals(lines[1], "pod1         container1              ")
 	assertStringEquals(lines[2], "             container2              ")
 }
-

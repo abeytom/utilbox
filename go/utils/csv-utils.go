@@ -282,8 +282,8 @@ func processLMergeOutput(csvFmt *CsvFormat, dataRows []DataRow) {
 		for _, word := range row.Cols {
 			var str string
 			switch word.(type) {
-			case *common.StringSet:
-				str = (word.(*common.StringSet)).ToString()
+			case common.StringCol:
+				str = (word.(common.StringCol)).ToString()
 			default:
 				str = fmt.Sprintf("%v", word)
 			}
@@ -445,8 +445,8 @@ func ProcessTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, wri
 		for i, col := range row.Cols {
 			var width int
 			switch col.(type) {
-			case *common.StringSet:
-				for _, val := range col.(*common.StringSet).Values() {
+			case common.StringCol:
+				for _, val := range col.(common.StringCol).Values() {
 					if (len(val)) > width {
 						width = len(val)
 					}
@@ -482,8 +482,8 @@ func ProcessTableOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, wri
 		extraValCount := 0
 		for i, col := range row.Cols {
 			switch col.(type) {
-			case *common.StringSet:
-				vals := col.(*common.StringSet).Values()
+			case common.StringCol:
+				vals := col.(common.StringCol).Values()
 				if len(vals) == 0 {
 					fmt.Fprintf(writer, fmtMap[i], "")
 				} else if len(vals) == 1 {

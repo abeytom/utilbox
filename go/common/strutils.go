@@ -169,8 +169,8 @@ func ParseExprStr(arg string) string {
 func ToString(word interface{}) string {
 	var str string
 	switch word.(type) {
-	case *StringSet:
-		str = (word.(*StringSet)).ToString()
+	case StringCol:
+		str = (word.(StringCol)).ToString()
 	case float64:
 		str = fmt.Sprintf("%.2f", word)
 		if strings.Index(str, ".00") == len(str)-3 { //hack
@@ -185,6 +185,36 @@ func ToString(word interface{}) string {
 }
 
 var void struct{}
+
+type StringCol interface {
+	Add(str string)
+	Values() []string
+	ToString() string
+	MarshalJSON() ([]byte, error)
+}
+
+type StringList struct {
+	values []string
+}
+
+func NewStringList() *StringList {
+	return &StringList{}
+}
+
+func (s *StringList) Add(str string) {
+	s.values = append(s.values, str)
+}
+func (s *StringList) Values() []string {
+	return s.values
+}
+
+func (s *StringList) ToString() string {
+	return strings.Join(s.Values(), ",")
+}
+
+func (s *StringList) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.Values())
+}
 
 //todo avoid saving keys if it is not needed
 type StringSet struct {

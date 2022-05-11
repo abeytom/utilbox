@@ -326,9 +326,9 @@ func Flatten(array []map[string]interface{}, keys []string) []DataRow {
 	return rows
 }
 
-func convertValuesToStringSet(values []interface{}) *common.StringSet {
+func convertValuesToStringSet(values []interface{}) *common.StringList {
 	comparable := true
-	set := &common.StringSet{}
+	set := &common.StringList{}
 L:
 	for _, value := range values {
 		vref := reflect.ValueOf(value)
