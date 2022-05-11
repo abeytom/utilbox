@@ -1141,7 +1141,14 @@ func processWord(ftrWord common.FilterStr, fmtMap map[int][]ColumnFormat) (strin
 }
 
 func isWithInBounds(ext *common.IntRange, idx int) bool {
-	//todo index based ext.Indices != nil
+	if len(ext.Indices) > 0 {
+		for _, index := range ext.Indices {
+			if idx == index {
+				return true
+			}
+		}
+		return false
+	}
 	upper := true
 	lower := true
 	if ext.Start != nil {

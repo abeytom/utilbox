@@ -328,3 +328,11 @@ func mergeMaps(map1 map[string]string, map2 map[string]string) map[string]string
 func getJsonFilePath(baseDir string) string {
 	return strings.Join([]string{baseDir, "conf.json"}, "/")
 }
+
+func logJson(o interface{}) string {
+	marshal, err := json.Marshal(o)
+	if err != nil {
+		panic(err)
+	}
+	return string(marshal)
+}

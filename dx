@@ -1,0 +1,16 @@
+### shortcut to ssh into the docker container
+### USAGE: dx ssh index [cmd] eg `dx ssh 0 sh`
+re='^[0-9]+$'
+if ! [[ $2 =~ $re ]] ; then
+   echo "The 2nd arg must be the index of the container" >&2; exit 1
+fi
+
+CMD="bash"
+if ! [[ -z "$3" ]]; then
+  CMD=$3
+fi
+
+# INCREMENT he index since the 0th row is header
+ROW=i=$(($2+1))
+CONTAINER=$(docker ps | csv col[0] row[$ROW] -outhead)
+docker exec -it $CONTAINER $CMD
