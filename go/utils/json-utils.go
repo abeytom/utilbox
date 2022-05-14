@@ -270,7 +270,11 @@ func JsonParse(args []string) {
 		if len(csvFmt.KeyDef.Fields) == 0 {
 			keys := JsonKeys(array)
 			for _, key := range keys {
-				fmt.Printf("%v\n", key.Key)
+				if strings.Index(key.Key, "\\.") != -1 {
+					fmt.Printf("'%v'\n", key.Key)
+				} else {
+					fmt.Printf("%v\n", key.Key)
+				}
 			}
 		} else {
 			keys := csvFmt.KeyDef.Fields
