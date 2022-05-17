@@ -294,5 +294,14 @@ func DelimToCamelCase(str string, delim rune, capitalizeFirst bool) string {
 		}
 	}
 	return output
+}
 
+func DelBlankItems(s []string) []string {
+	var r []string
+	for _, str := range s {
+		if str != "" {
+			r = append(r, str)
+		}
+	}
+	return r
 }

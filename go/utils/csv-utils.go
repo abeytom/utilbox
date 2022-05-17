@@ -25,6 +25,9 @@ type ColumnFormat struct {
 	Prefix string
 	Suffix string
 	AddCol bool
+	Trim   bool
+	Ltrim  string
+	Rtrim  string
 }
 
 type CsvInjectArgs struct {
@@ -113,7 +116,7 @@ func CsvParse(args []string) {
 				if useFields {
 					return strings.Fields(scanner.Text())
 				}
-				return strings.Split(scanner.Text(), csvFmt.Split)
+				return common.DelBlankItems(strings.Split(scanner.Text(), csvFmt.Split))
 			})
 		}
 		processLines(csvFmt, processor.Lines, processor.DataHeaders)
@@ -1035,6 +1038,12 @@ func processTrArguments(command string, csvFmt *CsvFormat) {
 			format.ColExt.Exclude = true
 		} else if part == "add" {
 			format.AddCol = true
+		} else if part == "trim" {
+			format.Trim = true
+		} else if strings.Index(part, "rtrim:") == 0 {
+			format.Rtrim = extractDelim(part, "rtrim:")
+		} else if strings.Index(part, "ltrim:") == 0 {
+			format.Ltrim = extractDelim(part, "ltrim:")
 		}
 	}
 	fmtMap := csvFmt.ColFmtMap
@@ -1130,6 +1139,15 @@ func processWord(ftrWord common.FilterStr, fmtMap map[int][]ColumnFormat) (strin
 		}
 		if colFormat.Wrap != "" {
 			newWord = colFormat.Wrap + newWord + colFormat.Wrap
+		}
+		if colFormat.Trim {
+			newWord = strings.TrimSpace(newWord)
+		}
+		if len(colFormat.Ltrim) > 0 {
+			newWord = strings.TrimPrefix(newWord, colFormat.Ltrim)
+		}
+		if len(colFormat.Rtrim) > 0 {
+			newWord = strings.TrimSuffix(newWord, colFormat.Rtrim)
 		}
 		if colFormat.AddCol {
 			words = append(words, newWord)

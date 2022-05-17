@@ -329,10 +329,10 @@ func getJsonFilePath(baseDir string) string {
 	return strings.Join([]string{baseDir, "conf.json"}, "/")
 }
 
-func logJson(o interface{}) string {
+func logJson(o interface{}) {
 	marshal, err := json.Marshal(o)
 	if err != nil {
 		panic(err)
 	}
-	return string(marshal)
+	fmt.Println(string(marshal))
 }
