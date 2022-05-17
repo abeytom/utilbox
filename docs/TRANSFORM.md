@@ -117,6 +117,9 @@ where,
 - `pfx`           Add any prefix string
 - `sfx`           Add any suffix strings
 - `add`           Apply transform and create a new col. _default_ is to modify the same column
+- `trim`          Trims the space `strings.TrimSpace(...)`
+- `ltrim`         Left Trim with the given string. chart`strings.TrimPrefix()` 
+- `rtrim`         Right Trim with the given string. chart`strings.TrimPrefix()`
 
 #### group
 
