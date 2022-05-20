@@ -246,6 +246,8 @@ func processOutput(csvFmt *CsvFormat, data *DataRows) {
 		processJsonOutput(dataRows, csvFmt, headers, data.GroupByCount)
 	} else if def.Type == "table" {
 		ProcessTableOutput(dataRows, csvFmt, headers, os.Stdout)
+	} else if def.Type == "kv" {
+		processKvOutput(dataRows, csvFmt, headers)
 	} else {
 		processCsvOutput(dataRows, csvFmt, headers)
 	}
@@ -258,6 +260,28 @@ func processCsvOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 	}
 	writer.WriteAll(rows)
 	writer.Close()
+}
+
+func processKvOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
+	for i, key := range headers {
+		var values []string
+		for _, row := range rows {
+			if len(row.Cols) > i {
+				values = append(values, common.ToString(row.Cols[i]))
+			}
+		}
+		if len(values) == 0 {
+			continue
+		}
+		merge := csvFmt.Merge
+		if merge == "csv" {
+			merge = "=" //default
+		}
+		value := strings.TrimSpace(strings.Join(values, ","))
+		if len(value) > 0 {
+			fmt.Printf("%v%v%v\n", key, merge, value)
+		}
+	}
 }
 
 func getFinalHeaders(csvFmt *CsvFormat, defHeaders []string) []string {

@@ -180,9 +180,10 @@ Omit headers while printing the output. Valid only for `table` and `csv` output 
 The output format
 
 ```
-output..csv     => Default
-output..json    
-output..table
+out..csv     => Default
+out..json    
+out..table
+out..kv      => key value pairs. The `merge` will be used as seperator. values will be merged with comma 
 ```
 
 - `..` is the arg delimiter same case as `tr`
