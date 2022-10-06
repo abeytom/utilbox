@@ -40,6 +40,8 @@ func main() {
 		utils.AwsExec(args[2:])
 	} else if args[1] == "regex" {
 		utils.RegexExtract(args[2:])
+	} else if args[1] == "hist" {
+		utils.ListHistory(args[2:])
 	} else {
 		fmt.Printf("Unknown command %s\n", args)
 	}
