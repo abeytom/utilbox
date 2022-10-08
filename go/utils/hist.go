@@ -10,8 +10,19 @@ import (
 )
 
 type histOpts struct {
-	dir *string
-	cmd *string
+	dir     *string
+	cmd     *string
+	sid     *string
+	suniq   bool
+	uniq    bool
+	cmdOnly bool
+}
+
+type histLine struct {
+	date string
+	dir  string
+	sid  string
+	cmd  string
 }
 
 // histx [-p | --pwd ] [-d | --dir /path/to/dir ] [-c | --cmd <cmd-to-filter>]
@@ -28,45 +39,82 @@ func ListHistory(args []string) {
 		if len(line) == 0 {
 			break
 		}
-		date, dir, cmd := splitHistLine(line)
-		if len(cmd) == 0 {
+		hist := splitHistLine(line)
+		if len(hist.cmd) == 0 {
 			continue
 		}
-		if filterHistLine(date, dir, cmd, opts) {
-			fmt.Println(date, dir, "--", cmd)
+		if filterHistLine(hist, opts) {
+			if opts.cmdOnly {
+				fmt.Println(hist.cmd)
+			} else {
+				fmt.Println(hist.date, hist.dir, hist.sid, "||", hist.cmd)
+			}
 		}
 	}
 	defer reader.close()
 }
 
-func filterHistLine(date string, dir string, cmd string, opts histOpts) bool {
-	if opts.dir != nil && dir != *opts.dir {
+type filterState struct {
+	prev  string
+	lines map[string]bool
+}
+
+var state filterState
+
+func filterHistLine(hist histLine, opts histOpts) bool {
+	if opts.dir != nil && hist.dir != *opts.dir {
 		return false
 	}
-	if opts.cmd != nil && !strings.HasPrefix(cmd, *opts.cmd) {
+	if opts.cmd != nil && !strings.HasPrefix(hist.cmd, *opts.cmd) {
 		return false
+	}
+	if opts.sid != nil && hist.sid != *opts.sid {
+		return false
+	}
+	if opts.uniq {
+		if _, ok := state.lines[hist.cmd]; ok {
+			return false
+		}
+		state.lines[hist.cmd] = true
+	} else if opts.suniq {
+		if hist.cmd == state.prev {
+			return false
+		}
+		state.prev = hist.cmd
 	}
 	return true
 }
 
-func splitHistLine(line string) (string, string, string) {
+func splitHistLine(line string) histLine {
 	idx := 0
+	count := 0
 	var date string
 	var dir string
+	var sid string
 	var command string
 	for i, c := range line {
 		if c == ',' {
-			if idx == 0 {
+			if count == 0 {
 				date = line[3:i]
 				idx = i
-			} else {
+				count++
+			} else if count == 1 {
 				dir = line[idx+1 : i]
+				idx = i
+				count++
+			} else {
+				sid = line[idx+1 : i]
 				command = strings.TrimSpace(line[i+1:])
 				break
 			}
 		}
 	}
-	return date, dir, command
+	return histLine{
+		date: date,
+		dir:  dir,
+		sid:  sid,
+		cmd:  command,
+	}
 }
 
 func parseHistArgs(args []string) histOpts {
@@ -87,6 +135,17 @@ func parseHistArgs(args []string) histOpts {
 			argVal := args[i+1]
 			histData.cmd = &argVal
 			i++
+		} else if arg == "--session" || arg == "-s" {
+			argVal := args[i+1]
+			histData.sid = &argVal
+			i++
+		} else if arg == "--uniq" {
+			histData.uniq = true
+			state.lines = make(map[string]bool)
+		} else if arg == "--suniq" {
+			histData.suniq = true
+		} else if arg == "--co" {
+			histData.cmdOnly = true
 		}
 	}
 	return histData
