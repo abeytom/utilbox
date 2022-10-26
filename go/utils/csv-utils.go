@@ -72,7 +72,8 @@ type SortDef struct {
 type OutputDef struct {
 	Type string
 	//Fields []string
-	Levels int
+	Levels  int
+	Flatten bool
 }
 
 type HeaderDef struct {
@@ -240,6 +241,10 @@ func processOutput(csvFmt *CsvFormat, data *DataRows) {
 
 	headers := applyCalcHeaders(csvFmt, data.Headers)
 	def := csvFmt.OutputDef
+	flatten := def != nil && def.Flatten
+	if flatten {
+		dataRows = flattenRows(dataRows)
+	}
 	if def == nil {
 		processCsvOutput(dataRows, csvFmt, headers)
 	} else if def.Type == "json" {
@@ -260,6 +265,70 @@ func processCsvOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
 	}
 	writer.WriteAll(rows)
 	writer.Close()
+}
+
+func flattenRows(rows []DataRow) []DataRow {
+	if len(rows) == 0 {
+		return rows
+	}
+	colCount := len(rows[0].Cols)
+	var nRows []DataRow
+	for i := 0; i < colCount; i++ {
+		nRows = make([]DataRow, 0)
+		for _, row := range rows {
+			colVal := row.Cols[i]
+			switch colVal.(type) {
+			case *common.StringList:
+				colValues := colVal.(*common.StringList).Values()
+				if len(colValues) <= 1 {
+					nRows = append(nRows, row)
+				} else {
+					for j := range colValues {
+						nRows = append(nRows, cloneDataRow(i, j, row))
+					}
+					//fixme handle rest of the values
+				}
+			default:
+				nRows = append(nRows, row)
+			}
+			//fmt.Printf("%T - %v\n", colVal, colVal)
+		}
+		rows = nRows
+	}
+	return nRows
+}
+
+func cloneDataRow(colIndex int, colValueIndex int, row DataRow) DataRow {
+	nCols := make([]interface{}, len(row.Cols))
+	for i, val := range row.Cols {
+		if i < colIndex {
+			nCols[i] = val
+		} else {
+			nCols[i] = getIndexedColValue(colValueIndex, val)
+		}
+		//fmt.Printf(">> %v %T %v\n", i, nCols[i], nCols[i])
+	}
+	return DataRow{
+		Cols:  nCols,
+		Count: row.Count,
+	}
+}
+
+func getIndexedColValue(index int, colVal interface{}) interface{} {
+	switch colVal.(type) {
+	case *common.StringList:
+		colValues := colVal.(*common.StringList).Values()
+		if index < len(colValues) {
+			return colValues[index]
+		}
+		return ""
+	default:
+		if index == 0 {
+			return colVal
+		} else {
+			return ""
+		}
+	}
 }
 
 func processKvOutput(rows []DataRow, csvFmt *CsvFormat, headers []string) {
@@ -983,6 +1052,9 @@ func processOutputArgs(command string, c *CsvFormat) {
 			if err == nil {
 				def.Levels = levels
 			}
+		}
+		if arg == "flatten" {
+			def.Flatten = true
 		}
 	}
 	c.OutputDef = &def
