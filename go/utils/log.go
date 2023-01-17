@@ -13,7 +13,7 @@ type LogLine struct {
 	Message    string `json:"message"`
 	Level      string `json:"level"`
 	Logger     string `json:"logger_name"`
-	StackTrace string `json:"stack_trace"`
+	StackTrace string `json:"stacktrace"`
 }
 
 func JsonLog2Txt() {

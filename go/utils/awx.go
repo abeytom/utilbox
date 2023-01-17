@@ -76,7 +76,8 @@ func AwsExec(args []string) {
 	if len(args) == 0 {
 		awsHelp()
 	} else if args[0] == "ls" {
-		awsList(args, loadParams(args).Ec2)
+		params, _ := loadParams(args)
+		awsList(args, params.Ec2)
 	} else if args[0] == "stop" {
 		awsInstanceCommand(args, "stop-instances", true)
 	} else if args[0] == "start" {
@@ -84,14 +85,17 @@ func AwsExec(args []string) {
 	} else if args[0] == "terminate" {
 		awsInstanceCommand(args, "terminate-instances", true)
 	} else if args[0] == "launch" {
-		awsLaunch(args, loadParams(args).Ec2)
+		params, argsMap := loadParams(args)
+		awsLaunch(args, params.Ec2, argsMap)
 	} else if args[0] == "create-ami" {
-		createAmi(args, loadParams(args).Ec2)
+		params, argsMap := loadParams(args)
+		createAmi(args, params.Ec2, argsMap)
 	} else if args[0] == "ami" {
 		if len(args) < 2 {
 			awsHelp()
 		} else if args[1] == "ls" {
-			awsAmiList(args, loadParams(args).Ec2)
+			params, _ := loadParams(args)
+			awsAmiList(args, params.Ec2)
 		} else {
 			awsHelp()
 		}
@@ -100,7 +104,7 @@ func AwsExec(args []string) {
 	}
 }
 
-func loadParams(args []string) awsParams {
+func loadParams(args []string) (awsParams, map[string]string) {
 	paramFile := os.Getenv("PARAM_FILE")
 	if len(paramFile) == 0 {
 		paramFile = filepath.Join(os.Getenv("HOME"), ".aws/params")
@@ -119,6 +123,7 @@ func loadParams(args []string) awsParams {
 		log.Fatalf("Error parsing YAML: %v", parseErr)
 	}
 	ec2Inst := reflect.ValueOf(&params.Ec2).Elem()
+	argsMap := make(map[string]string)
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if strings.Index(arg, "--ec2-") == 0 {
@@ -127,10 +132,13 @@ func loadParams(args []string) awsParams {
 			if field.IsValid() && field.CanSet() {
 				field.SetString(args[i+1])
 				i++
+			} else {
+				argsMap[arg[6:]] = args[i+1]
+				i++
 			}
 		}
 	}
-	return params
+	return params, argsMap
 }
 
 func awsAmiList(args []string, ec2 ec2Params) {
@@ -188,28 +196,31 @@ func awsAmiList(args []string, ec2 ec2Params) {
 	})
 }
 
-func createAmi(args []string, ec2 ec2Params) {
+func createAmi(args []string, ec2 ec2Params, ec2ArgMap map[string]string) {
 	if len(args) < 3 || len(strings.TrimSpace(args[1])) == 0 || len(strings.TrimSpace(args[2])) == 0 {
 		log.Fatalf("The Instance ID and AMI Name should be set as args")
 	}
 	instanceId := strings.TrimSpace(args[1])
 	amiName := strings.TrimSpace(args[2])
 	typeTag := ensureValue(ec2.InstanceTypeTag, "instanceTypeTag")
-	tagSpec := fmt.Sprintf("ResourceType=image,Tags=[{Key=Name,Value=%v},{Key=Type,Value=%v}]",
+	tagSpec := fmt.Sprintf("ResourceType=image,Tags=[{Key=Name,Value=%v},{Key=Type,Value=%v},{Key=owner,Value=abey}]",
 		amiName, typeTag)
-	cmdOut, cmdErr, err := ExecuteCommand2("aws", "ec2", "create-image",
+	ec2CmdArgs := []string{"ec2", "create-image",
 		"--instance-id", instanceId,
 		"--name", amiName,
 		"--description", amiName,
-		"--tag-specifications", tagSpec,
-	)
+		"--tag-specifications", tagSpec}
+	for key, value := range ec2ArgMap {
+		ec2CmdArgs = append(ec2CmdArgs, "--"+key, value)
+	}
+	cmdOut, cmdErr, err := ExecuteCommand2("aws", ec2CmdArgs...)
 	if err != nil {
 		log.Fatalf("Error while executing launch. The message is [%v]. The error is [%v]", cmdErr, err)
 	}
 	fmt.Println(cmdOut)
 }
 
-func awsLaunch(args []string, ec2 ec2Params) {
+func awsLaunch(args []string, ec2 ec2Params, ec2ArgMap map[string]string) {
 	if len(args) < 3 || len(strings.TrimSpace(args[1])) == 0 || len(strings.TrimSpace(args[2])) == 0 {
 		log.Fatalf("The AMI ID and Suffix should be set as args")
 	}
@@ -222,15 +233,19 @@ func awsLaunch(args []string, ec2 ec2Params) {
 	subNetId := ensureValue(ec2.SubNetId, "subNetId")
 	typeTag := ensureValue(ec2.InstanceTypeTag, "instanceTypeTag")
 	namePfx := ensureValue(ec2.InstanceNameTagPrefix, "instanceNameTagPrefix")
-	tagSpec := fmt.Sprintf("ResourceType=instance,Tags=[{Key=Name,Value=%v%v},{Key=Type,Value=%v}]",
+	tagSpec := fmt.Sprintf("ResourceType=instance,Tags=[{Key=Name,Value=%v%v},{Key=Type,Value=%v},{Key=owner,Value=abey}]",
 		namePfx, suffix, typeTag)
-	cmdOut, cmdErr, err := ExecuteCommand2("aws", "ec2", "run-instances",
-		"--image-id", amiId, "--count", "1",
+	ec2CmdArgs := []string{"ec2", "run-instances",
+		"--image-id", amiId,
 		"--instance-type", instanceType,
 		"--key-name", sshKeyPairName,
 		"--security-group-ids", securityGroupId,
 		"--subnet-id", subNetId,
-		"--tag-specifications", tagSpec,
+		"--tag-specifications", tagSpec}
+	for key, value := range ec2ArgMap {
+		ec2CmdArgs = append(ec2CmdArgs, "--"+key, value)
+	}
+	cmdOut, cmdErr, err := ExecuteCommand2("aws", ec2CmdArgs...,
 	)
 	if err != nil {
 		log.Fatalf("Error while executing launch. The message is [%v]. The error is [%v]", cmdErr, err)
