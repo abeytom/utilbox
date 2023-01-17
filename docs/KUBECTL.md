@@ -44,7 +44,7 @@ This prompt will add the k8s context and k8s namespace to the prompt.
 ```
 export PATH=$PATH:$HOME/utilbox
 
-alias kc="noglob kc"
+# alias kc="noglob kc"
 alias po="kc get pods"
 
 get_base_dir_prompt(){
