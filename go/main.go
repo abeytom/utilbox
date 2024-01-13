@@ -38,6 +38,8 @@ func main() {
 		utils.VbExec(args[2:])
 	} else if args[1] == "awx" {
 		utils.AwsExec(args[2:])
+	} else if args[1] == "gx" {
+		utils.GxExec(args[2:])
 	} else if args[1] == "regex" {
 		utils.RegexExtract(args[2:])
 	} else if args[1] == "hist" {

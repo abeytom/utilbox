@@ -31,7 +31,13 @@ func ApplyRange(array []string, intR *IntRange) *[]FilterStr {
 			if index < 0 {
 				index = len(array) + index
 			}
-			vals = append(vals, FilterStr{Str: array[index], Index: index})
+			var val string
+			if len(array) > index {
+				val = array[index]
+			} else {
+				val = ""
+			}
+			vals = append(vals, FilterStr{Str: val, Index: index})
 		}
 		return &vals
 	} else {
@@ -216,7 +222,7 @@ func (s *StringList) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.Values())
 }
 
-//todo avoid saving keys if it is not needed
+// todo avoid saving keys if it is not needed
 type StringSet struct {
 	values  map[string]struct{}
 	keys    []string

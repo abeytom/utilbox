@@ -1,0 +1,6 @@
+out=$(goexec "gx" "$@")
+if [[ $1 == "ssh" ]]; then
+    command $out
+else
+  echo "$out"
+fi

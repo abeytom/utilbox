@@ -18,16 +18,17 @@ import (
 )
 
 type ColumnFormat struct {
-	Split  string
-	Merge  string
-	ColExt *common.IntRange
-	Wrap   string
-	Prefix string
-	Suffix string
-	AddCol bool
-	Trim   bool
-	Ltrim  string
-	Rtrim  string
+	Split    string
+	MaxSplit int
+	Merge    string
+	ColExt   *common.IntRange
+	Wrap     string
+	Prefix   string
+	Suffix   string
+	AddCol   bool
+	Trim     bool
+	Ltrim    string
+	Rtrim    string
 }
 
 type CsvInjectArgs struct {
@@ -40,6 +41,7 @@ type CsvFormat struct {
 	ColExt       *common.IntRange
 	RowExt       *common.IntRange
 	Split        string
+	MaxSplit     int
 	Merge        string
 	IsLMerge     bool
 	LMerge       string
@@ -117,6 +119,9 @@ func CsvParse(args []string) {
 				if useFields {
 					return strings.Fields(scanner.Text())
 				}
+				if csvFmt.MaxSplit > 0 {
+					return common.DelBlankItems(strings.SplitN(scanner.Text(), csvFmt.Split, csvFmt.MaxSplit))
+				}
 				return common.DelBlankItems(strings.Split(scanner.Text(), csvFmt.Split))
 			})
 		}
@@ -157,7 +162,9 @@ func doParseCsvArgs(args []string, csvFmt *CsvFormat) *CsvFormat {
 		} else if strings.Index(arg, "sort[") == 0 {
 			csvFmt.SortDef = extractSort(arg)
 		} else if strings.Index(arg, "split:") == 0 {
-			csvFmt.Split = extractDelim(arg, "split:")
+			delim, count := processSplitArgs(arg)
+			csvFmt.Split = delim
+			csvFmt.MaxSplit = count
 		} else if strings.Index(arg, "wrap:") == 0 {
 			csvFmt.Wrap = extractDelim(arg, "wrap:")
 		} else if strings.HasPrefix(arg, "tr") {
@@ -800,7 +807,11 @@ func processJsonOutput(rows []DataRow, csvFmt *CsvFormat, headers []string, grou
 		for _, row := range rows {
 			colMap := make(map[string]interface{})
 			for i, col := range row.Cols {
-				colMap[fields[i]] = col
+				if len(fields) > i {
+					colMap[fields[i]] = col
+				} else {
+					colMap[fmt.Sprintf("%v", i)] = col
+				}
 			}
 			array = append(array, colMap)
 		}
@@ -1118,7 +1129,9 @@ func processTrArguments(command string, csvFmt *CsvFormat) {
 	format := ColumnFormat{}
 	for _, part := range parts[2:] {
 		if strings.Index(part, "split:") == 0 {
-			format.Split = extractDelim(part, "split:")
+			delim, count := processSplitArgs(part)
+			format.Split = delim
+			format.MaxSplit = count
 		} else if strings.Index(part, "merge:") == 0 {
 			format.Merge = extractDelim(part, "merge:")
 		} else if strings.Index(part, "wrap:") == 0 {
@@ -1155,12 +1168,28 @@ func processTrArguments(command string, csvFmt *CsvFormat) {
 	}
 }
 
+func processSplitArgs(part string) (string, int) {
+	delim := extractDelim(part, "split:")
+	parts := strings.Split(part, ":")
+	if len(parts) == 3 {
+		count, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return delim, 0
+		}
+		return delim, count
+	}
+	return delim, 0
+}
+
 func extractArg(arg string, prefix string) string {
 	return strings.Replace(arg, prefix, "", 1)
 }
 
 func extractDelim(arg string, prefix string) string {
 	delim := strings.Replace(arg, prefix, "", 1)
+	if strings.Contains(delim, ":") {
+		delim = strings.Split(delim, ":")[0]
+	}
 	if delim == "comma" {
 		return ","
 	}
@@ -1192,6 +1221,9 @@ func extractDelim(arg string, prefix string) string {
 }
 
 func extractCsv(words []string, ext *common.IntRange, fmtMap map[int][]ColumnFormat) []string {
+	if len(words) == 0 {
+		return words
+	}
 	ftrWords := common.ApplyRange(words, ext)
 	var vals []string
 	for _, ftrWord := range *ftrWords {

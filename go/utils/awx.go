@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/abeytom/utilbox/common"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -113,7 +112,7 @@ func loadParams(args []string) (awsParams, map[string]string) {
 	if os.IsNotExist(statErr) {
 		log.Fatalf("The params file doesnt exist at ~/.aws/params")
 	}
-	bytes, readErr := ioutil.ReadFile(paramFile)
+	bytes, readErr := os.ReadFile(paramFile)
 	if readErr != nil {
 		log.Fatalf("The error while reading [%v]. The error is [%v]", paramFile, readErr)
 	}
@@ -233,18 +232,28 @@ func awsLaunch(args []string, ec2 ec2Params, ec2ArgMap map[string]string) {
 	subNetId := ensureValue(ec2.SubNetId, "subNetId")
 	typeTag := ensureValue(ec2.InstanceTypeTag, "instanceTypeTag")
 	namePfx := ensureValue(ec2.InstanceNameTagPrefix, "instanceNameTagPrefix")
-	tagSpec := fmt.Sprintf("ResourceType=instance,Tags=[{Key=Name,Value=%v%v},{Key=Type,Value=%v},{Key=owner,Value=abey}]",
-		namePfx, suffix, typeTag)
 	ec2CmdArgs := []string{"ec2", "run-instances",
 		"--image-id", amiId,
 		"--instance-type", instanceType,
 		"--key-name", sshKeyPairName,
 		"--security-group-ids", securityGroupId,
-		"--subnet-id", subNetId,
-		"--tag-specifications", tagSpec}
+		"--subnet-id", subNetId}
+	inTags := ""
 	for key, value := range ec2ArgMap {
+		if key == "tag" {
+			parts := strings.Split(value, "=")
+			if len(parts) != 2 {
+				continue
+			}
+			inTags += fmt.Sprintf(",{Key=%v,Value=%v}", parts[0], parts[1])
+			continue
+		}
 		ec2CmdArgs = append(ec2CmdArgs, "--"+key, value)
 	}
+	tagSpec := fmt.Sprintf("ResourceType=instance,Tags=[{Key=Name,Value=%v%v},{Key=Type,Value=%v},{Key=owner,Value=abey},{Key=reason,Value=platform-test},{Key=expected-end-date,Value=12/12/2023}%v]",
+		namePfx, suffix, typeTag, inTags)
+	ec2CmdArgs = append(ec2CmdArgs, "--tag-specifications", tagSpec)
+
 	cmdOut, cmdErr, err := ExecuteCommand2("aws", ec2CmdArgs...,
 	)
 	if err != nil {
